@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* 1. Define Dark Mode Variant for Tailwind 4 */
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Yahan aap apne dark theme ke custom colors define kar sakte hain */
+  --color-slate-950: #020617;
+  --color-slate-900: #0f172a;
+}
+
+@layer base {
+  /* 2. Global Transitions: Taaki mode switch smooth ho */
+  *, ::after, ::before {
+    @apply transition-colors duration-300;
+  }
+
+  /* 3. Your Existing Full-Screen Fix */
+  #root {
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    @apply flex flex-col overflow-hidden;
+  }
+
+  /* 4. Light Mode Defaults */
+  body {
+    @apply bg-slate-50 text-slate-900;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 5. DARK MODE GLOBAL OVERRIDE */
+  /* Jab Header logic se <html> par .dark class aayegi */
+  .dark body {
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  /* Scrollbar fix for Dark Mode */
+  .dark .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-slate-900;
+  }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-800 border-slate-900;
+  }
+}
+
+/* 6. Utility for Cards (Inhe har page par use karna) */
+@layer components {
+  .glass-card {
+    @apply bg-white border-slate-200 shadow-sm transition-all;
+    @apply dark:bg-slate-900 dark:border-slate-800 dark:shadow-none;
+  }
+}
