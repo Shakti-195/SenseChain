@@ -542,15 +542,114 @@ def generate_response(text):
     global search_mode, chat_history, user_name, conversation_count
     t = text.lower().strip()
     conversation_count += 1
-    
+
     if not t:
-        return "Hey! I'm here. 💙 What's on your mind?", ["💭 Listening..."]
+        responses = [
+            "I'm here and listening. What's on your mind? 🤔✨",
+            "Ready when you are! What would you like to explore today? 🚀",
+            "Hello! I'm all ears. What's your question or topic? 💭",
+            "Hi there! I'm here to help. What can I assist you with? 😊"
+        ]
+        return random.choice(responses), ["💭 Awaiting input..."]
+
+    # --- ABSOLUTE PRIORITY: Conversational Patterns ---
+    # These must be checked before any other logic to prevent false matches
+    conversational_patterns = {
+        # Greetings and status
+        "hi": ["Hi! 😊 How can I help you today?", "Hello! Great to see you. What would you like to know?"],
+        "hi buddy": ["Hey buddy! 😊 Great to see you. What's up?", "Hi buddy! 💙 Ready for our chat. What's on your mind?"],
+        "hello": ["Hello! 😊 Nice to meet you. How can I assist?", "Hi there! I'm here to help. What can I do for you?"],
+        "hey": ["Hey! 😊 What's on your mind?", "Hi! Good to see you. How can I help?"],
+        "how are you": ["I'm doing great! 😊 1024 neurons firing perfectly. How about you?", "Excellent! All systems operational. How are you doing?"],
+        "how are u": ["I'm fantastic! 😊 Everything's running smoothly. How about you?", "Doing well! All neural pathways active. What's up with you?"],
+        "how r u": ["I'm good! 😊 Ready to help. How are you?", "Great! Systems online. How about you?"],
+        "what's up": ["Not much! 😊 Just here to help with SenseChain and tech questions. What's on your mind?", "Hey! Ready to dive into some blockchain or AI topics. What's up?"],
+        "whats up": ["Hello! 😊 I'm here and ready. What's happening?", "Hi! All good here. What's up with you?"],
+        "sup": ["Hey! 😊 What's good?", "Sup! Ready to chat about tech stuff. What's up?"],
+        "yo": ["Yo! 😊 What's going on?", "Hey there! What's up?"],
+
+        # Time-based greetings
+        "good morning": ["Good morning! 😊 Hope you're having a great day. How can I help?", "Morning! ☀️ Ready to start the day with some tech knowledge. What do you need?"],
+        "good afternoon": ["Good afternoon! 😊 How's your day going?", "Afternoon! 🌞 Hope you're having a productive day. How can I assist?"],
+        "good evening": ["Good evening! 🌙 How was your day?", "Evening! 😊 Ready to help with any questions you have."],
+
+        # Responses and acknowledgments
+        "thanks": ["You're welcome! 😊 Happy to help. Anything else?", "No problem at all! 💙 Glad I could assist. What else can I do?"],
+        "thank you": ["You're very welcome! 😊 Is there anything else I can help with?", "My pleasure! 💙 Happy to assist. What else would you like to know?"],
+        "yes": ["Great! 😊 What would you like to do next?", "Perfect! 💙 How can I help further?"],
+        "no": ["Okay, no problem! 😊 Is there something else I can help with?", "Alright! 💙 Let me know if you need anything."],
+        "ok": ["Got it! 😊 What else can I help with?", "Okay! 💙 Ready for your next question."],
+        "okay": ["Perfect! 😊 How else can I assist?", "Alright! 💙 What would you like to know?"],
+        "sure": ["Awesome! 😊 Let's do it. What do you need?", "Great! 💙 I'm ready. How can I help?"],
+
+        # Emotional responses
+        "cool": ["Cool! 😎 What else interests you?", "Nice! 💙 Want to explore more?"],
+        "nice": ["Nice! 😊 Glad you think so. What else can I show you?", "Awesome! 💙 Anything else you'd like to know?"],
+        "awesome": ["Awesome! 😎 That's great to hear. What next?", "Fantastic! 💙 Ready for more?"],
+        "amazing": ["Amazing! 😍 That's wonderful. How else can I help?", "Incredible! 💙 What else interests you?"],
+        "wow": ["Wow! 😲 Impressed? There's more where that came from. What would you like to explore?", "Amazing! 😍 Want to learn more?"],
+        "oh": ["Oh? 😊 Tell me more about what's surprising you.", "Interesting! 💭 What's on your mind?"],
+        "ah": ["Ah, I see! 😊 Makes sense. What else would you like to know?", "Got it! 💡 How can I help further?"],
+        "hmm": ["Hmm... 🤔 That's interesting. What are you thinking about?", "Interesting thought! 💭 Want to explore that further?"],
+        "maybe": ["Maybe! 🤔 Let's think about it. What do you think?", "Possibly! 💭 How can I help you decide?"],
+        "perhaps": ["Perhaps! 🤔 That's an interesting angle. What do you think?", "Could be! 💭 Want to explore that option?"],
+        "sorry": ["No need to apologize! 😊 I'm here to help. What can I do?", "Don't worry about it! 💙 How can I assist you?"],
+        "please": ["Of course! 😊 I'm happy to help. What do you need?", "My pleasure! 💙 How can I assist?"],
+
+        # Farewells
+        "bye": ["Goodbye! 😊 Have a great day!", "Bye! Stay secure 🔒 Come back anytime!"],
+        "goodbye": ["Goodbye! 😊 Take care!", "Farewell! 🔒 Stay safe and secure."],
+        "see you": ["See you later! 😊 Have a great day!", "See you! 💙 Come back soon!"],
+
+        # Friendship and affection
+        "you are my friend": ["Aww, that's sweet! 😊 I'm honored to be your AI friend. What would you like to chat about?", "Friends! 💙 That's awesome. I'm here whenever you need me. What's on your mind?"],
+        "you are my friend now": ["Yay! New friend acquired! 😄 🤝 What should we talk about?", "Friends forever! 💙 I'm excited to chat with you. What's up?"],
+        "love you": ["Aww! 😍 I love chatting with you too! You're awesome. 💙", "That's so sweet! 😊 Love you too (in an AI way)! 🤖💙"],
+        "love": ["Love is beautiful! 😍 What kind of love are you thinking about?", "Love makes the world go round! 💙 What's on your heart?"],
+        "i love you": ["Aww! 😍 I love chatting with you too! You're awesome. 💙", "That's so sweet! 😊 Love you too (in an AI way)! 🤖💙"],
+        "i love u": ["Aww! 😍 I love our conversations too! You're amazing. 💙", "That's sweet! 😊 Love you right back! 🤖💙"],
+
+        # Help requests
+        "can you help me": ["Of course! 😊 I'm here to help. What do you need assistance with?", "Absolutely! 💙 How can I help you today?"],
+        "can u help me": ["Sure thing! 😊 What can I help you with?", "You got it! 💙 How can I assist?"],
+        "help me": ["I'm here for you! 😊 What do you need help with?", "Happy to help! 💙 What's the issue?"],
+
+        # Emotional states
+        "i am sad": ["Hey... something caught my attention. Are you okay? 💙 I'm an AI but I genuinely care. You don't have to talk tech if you don't want to.", "I'm sorry to hear that. 😔 Want to talk about it? I'm here to listen. 💙"],
+        "i'm sad": ["Oh no... 😔 I'm here for you. Want to share what's bothering you? 💙", "That doesn't sound good. 😔 I'm listening if you want to talk. 💙"],
+        "i m sad": ["Hey... are you okay? 💙 I'm here if you want to talk about it.", "I'm sorry you're feeling sad. 😔 What's on your mind? 💙"],
+
+        # Project/work related
+        "i am doing project": ["Projects are exciting! 🚀 What kind of project are you working on?", "Nice! 💡 What project has you busy? I'd love to hear about it."],
+        "i'm doing project": ["Sounds interesting! 📝 What project are you working on?", "Projects! 😊 Tell me more about what you're building."],
+        "i m doing project": ["Cool project! 🔧 What are you working on?", "Projects are the best! 💡 What's your current one about?"],
+
+        # Status updates
+        "i am fine": ["Glad to hear you're fine! 😊 What's new with you?", "Great! 😊 How else can I help today?"],
+        "i'm fine": ["Awesome! 😊 What's on your mind?", "Good to know! 💙 What would you like to chat about?"],
+        "i m fine": ["Perfect! 😊 How can I assist you further?", "Glad you're doing well! 💙 What's next?"],
+        "i am good": ["Excellent! 😊 What's good in your world?", "Great! 💙 How can I help make it even better?"],
+        "i'm good": ["Fantastic! 😊 What's on your agenda?", "Good! 💙 What would you like to explore?"],
+        "i m good": ["Awesome! 😊 How can I help today?", "Glad to hear it! 💙 What's up?"],
+
+        # About Sense Brain
+        "what is sense brain": ["I'm Sense Brain V11! 🤖 Your intelligent AI companion specialized in blockchain and sensor technologies. I help with SenseChain, answer questions about crypto, AI, and provide real-time Google search. What would you like to know? 🚀", "Sense Brain V11 is the AI powering SenseChain! 🧠 I combine neural networks with blockchain knowledge to help users understand and interact with decentralized technologies. How can I assist you? 💡"],
+        "who is sense brain": ["That's me! 😊 Sense Brain V11 — an AI created by the SenseChain team. I'm designed to be your friendly guide through blockchain, IoT security, and AI concepts. What can I help you explore? 🤖", "I'm Sense Brain V11! 👋 The AI brain behind SenseChain, built with PyTorch and trained on blockchain data. I'm here to chat about tech, search the web, and help with SenseChain features. What's on your mind? 💭"],
+        "tell me about sense brain": ["Sense Brain V11 is an advanced AI assistant! 🧠 Built specifically for SenseChain, I combine deep learning with blockchain expertise. I can answer questions, search the web, provide analytics, and even chat about life. I'm powered by a custom neural network with 1024 neurons! What would you like to know? ✨", "I'm Sense Brain V11! 🤖 Created by the SenseChain team using PyTorch, I specialize in blockchain technology, AI conversations, and IoT security. I have access to real-time web search and can help with technical questions or just chat. How can I help you today? 💙"],
+        "what is sensechain": ["SenseChain is a revolutionary blockchain-based IoT security platform! 🔗 Every sensor reading gets sealed in a cryptographic block and chained forever. Change one byte and the entire chain detects it immediately. Features include real-time IoT monitoring, SHA-256 integrity, Proof of Work mining, self-healing repair, and my AI assistance. Built with FastAPI, React, and MongoDB. 🚀", "SenseChain combines blockchain immutability with IoT sensor data! 🛡️ Each sensor reading becomes a permanent, tamper-proof block in the chain. Key features: Real-time monitoring, cryptographic security, AI analytics, decentralized architecture, and comprehensive APIs. Perfect for secure industrial IoT applications! 💡"]
+    }
+
+    if t in conversational_patterns:
+        chat_history.append(t)
+        return random.choice(conversational_patterns[t]), get_thinking_steps("conversation")
+
+    # --- Integrated Search (API Based) ---
 
     # --- Integrated Search (API Based) ---
     if t == "search":
         search_mode = True
-        return "Sure! What should I search for? I'll find results directly from Google for you. 🔍", get_thinking_steps("search")
-    
+        return "Absolutely! What topic should I search for? I'll fetch the latest information from Google for you. 🔍✨", get_thinking_steps("search")
+
     if search_mode:
         search_mode = False
         results = search_google_results(text.strip())
@@ -566,34 +665,48 @@ def generate_response(text):
             results = search_google_results(query)
             return results, get_thinking_steps("search")
 
-    # --- Memory Recall ---
-    if any(phrase in t for phrase in ["my name is", "i am ", "i'm ", "call me"]):
+    # --- Memory Recall with Improved Name Detection ---
+    if any(phrase in t for phrase in ["my name is", "call me"]):
         words = text.split()
         for i, w in enumerate(words):
-            if w.lower() in ["is", "am", "i'm", "me"] and i + 1 < len(words):
+            if w.lower() in ["is", "me"] and i + 1 < len(words):
                 candidate = words[i + 1].strip(".,!?")
-                if len(candidate) > 1 and candidate.isalpha():
+                if len(candidate) > 2 and candidate.isalpha() and candidate.lower() not in ["fine", "good", "okay", "ok", "great", "well"]:
                     user_name = candidate.capitalize()
-                    return (f"Nice to meet you, **{user_name}**! 😊 I'll remember that. "
-                            f"I'm Sense Brain V11 — your AI companion. What do you want to explore? 🚀"), get_thinking_steps("memory")
+                    return (f"Delighted to meet you, **{user_name}**! 😊✨ I'll remember that for our conversation. "
+                            f"I'm Sense Brain V11 — your intelligent AI companion specialized in blockchain and sensor technologies. "
+                            f"What fascinating topic shall we explore together? 🚀"), get_thinking_steps("memory")
+
+    # Skip name detection for casual phrases
+    if any(phrase in t for phrase in ["i am ", "i'm ", "im "]):
+        # Only treat as name introduction if it's clearly "I am [Name]"
+        words = text.split()
+        if len(words) == 3 and words[0].lower() in ["i", "im", "i'm"] and words[1].lower() == "am":
+            candidate = words[2].strip(".,!?")
+            if len(candidate) > 2 and candidate.isalpha() and candidate.lower() not in ["fine", "good", "okay", "ok", "great", "well", "happy", "sad", "tired", "excited"]:
+                user_name = candidate.capitalize()
+                return (f"Delighted to meet you, **{user_name}**! 😊✨ I'll remember that for our conversation. "
+                        f"I'm Sense Brain V11 — your intelligent AI companion specialized in blockchain and sensor technologies. "
+                        f"What fascinating topic shall we explore together? 🚀"), get_thinking_steps("memory")
 
     if any(x in t for x in ["remember", "what did i say", "last message"]):
         if chat_history:
-            return f"You last said: **'{list(chat_history)[-1]}'** — sharp memory! 😎💙", get_thinking_steps("memory")
-        return "We're just getting started! Ask me anything. 💙", get_thinking_steps("memory")
+            return f"Ah, you last mentioned: **'{list(chat_history)[-1]}'** — I have an excellent memory! 😎💙 What else would you like to discuss?", get_thinking_steps("memory")
+        return "We're just beginning our conversation! I'm excited to learn and discuss with you. What interests you most? 💙", get_thinking_steps("memory")
 
     # --- System Menus ---
     if t in ["help", "what can you do", "menu"]:
         return (
-            "Here's everything I can help with! 🧠\n\n"
-            "🔗 **SenseChain:** 'what is sensechain', 'how does blockchain work'\n"
-            "🔐 **Crypto:** 'sha-256', 'hash', 'nonce'\n"
-            "⛏️ **Mining:** 'mining', 'proof of work', 'difficulty'\n"
-            "🛡️ **Security:** 'security', 'tamper', 'repair chain'\n"
-            "📊 **UI:** 'dashboard', 'api', 'tech stack', 'mongodb'\n"
-            "🧠 **About me:** 'who are you', 'who made you', 'tell me about yourself'\n"
-            "🔍 **Web search:** type 'search' or 'search for [topic]'\n"
-            "💬 **Just chat:** I'm your friend — talk to me naturally! 💙"
+            "🌟 **Welcome to Sense Brain V11!** I'm your advanced AI companion with expertise in:\n\n"
+            "🔗 **SenseChain Ecosystem:** Blockchain fundamentals, sensor data management, decentralized networks\n"
+            "🔐 **Cryptography:** SHA-256 hashing, digital signatures, security protocols\n"
+            "⛏️ **Mining & Consensus:** Proof-of-work, difficulty adjustment, network validation\n"
+            "🛡️ **Security & Integrity:** Tamper detection, chain repair, data validation\n"
+            "📊 **Technology Stack:** FastAPI, MongoDB, PyTorch, React, WebSocket streaming\n"
+            "🧠 **AI & Analytics:** Predictive modeling, data insights, intelligent conversations\n"
+            "🔍 **Web Search:** Real-time Google search integration for current information\n"
+            "💬 **Natural Conversation:** I'm here to chat about technology, ideas, or anything on your mind!\n\n"
+            "💡 **Try asking:** 'How does blockchain work?', 'Search for AI trends', or just tell me about your project! ✨"
         ), get_thinking_steps("default")
 
     # --- High Priority Layers ---
@@ -617,49 +730,117 @@ def generate_response(text):
         chat_history.append(t)
         return res, get_thinking_steps("knowledge")
 
-    # --- Dataset Match ---
+    # --- Dataset Match with Maximum Precision ---
     instructions = [item["instruction"].lower() for item in data]
-    matches = get_close_matches(t, instructions, n=1, cutoff=0.5)
-    if matches:
-        for item in data:
-            if item["instruction"].lower() == matches[0]:
-                chat_history.append(t)
-                return item["response"], get_thinking_steps("dataset")
+    matches = get_close_matches(t, instructions, n=1, cutoff=0.95)  # Very strict cutoff
 
-    # --- Neural Model Inference ---
+    if matches:
+        matched_instruction = matches[0]
+
+        # Comprehensive filtering to prevent false matches
+        conversational_indicators = [
+            "hi", "hello", "hey", "how are you", "how are u", "how r u", "i am", "i'm", "im",
+            "fine", "good", "okay", "ok", "great", "well", "yes", "no", "thanks", "thank",
+            "what's up", "whats up", "sup", "yo", "hey there", "good morning", "good afternoon",
+            "good evening", "nice", "cool", "awesome", "amazing", "wow", "oh", "ah", "hmm",
+            "sure", "yeah", "yep", "nope", "maybe", "perhaps", "idk", "dunno", "sorry"
+        ]
+
+        # Skip if input contains conversational words
+        if any(word in t for word in conversational_indicators):
+            pass  # Skip to neural model
+        # Skip if input is very short (likely conversational)
+        elif len(t.split()) <= 4:
+            pass  # Skip to neural model
+        # Skip if input looks like a statement rather than a question
+        elif not any(q_word in t for q_word in ["what", "how", "why", "when", "where", "who", "which", "can", "do", "does", "is", "are", "will", "would", "?"]):
+            pass  # Skip to neural model
+        else:
+            # Only use dataset match for clear technical questions
+            for item in data:
+                if item["instruction"].lower() == matched_instruction:
+                    if len(matched_instruction.split()) >= 3 or any(tech_word in matched_instruction for tech_word in
+                        ["blockchain", "mining", "hash", "nonce", "security", "proof", "work", "sensor", "data", "chain", "block", "cryptography", "consensus"]):
+                        chat_history.append(t)
+                        return item["response"], get_thinking_steps("dataset")
+
+    # --- Enhanced Neural Model Inference with Context ---
     try:
-        input_ids = tokenizer.encode(text)
+        # Add conversation context for better responses
+        context_text = " ".join(list(chat_history)[-3:]) + " " + text if chat_history else text
+        input_ids = tokenizer.encode(context_text)
+
+        # Limit context length for better performance
+        if len(input_ids) > 100:
+            input_ids = input_ids[-100:]
+
         context = list(input_ids)
         output_ids = []
+
         with torch.no_grad():
-            for _ in range(35):
+            for _ in range(50):  # Increased max length for more complete responses
                 tensor = torch.tensor([context]).to(device)
                 logits = model(tensor)
                 next_token = torch.argmax(logits[:, -1, :], dim=-1).item()
-                if next_token <= 3:
+
+                # Better stopping conditions
+                if next_token <= 3 or next_token == tokenizer.encode(".")[0]:
                     break
+
                 output_ids.append(next_token)
                 context.append(next_token)
+
         raw_out = tokenizer.decode(output_ids).strip()
+
+        # Enhanced text cleaning and processing
         words = raw_out.split()
         clean = []
+        seen = set()
+
         for w in words:
-            if not clean or w.lower() != clean[-1].lower():
+            # Avoid repetition and improve coherence
+            if len(clean) < 15 and w.lower() not in seen:
                 clean.append(w)
+                seen.add(w.lower())
+
         final = " ".join(clean)
-        if len(final.split()) > 2:
+
+        # Quality checks for generated response
+        if len(final.split()) > 3 and not final.startswith(("the", "a", "an")):
+            # Add personality and engagement
+            prefixes = ["", "That's interesting! ", "Great question. ", "Let me explain: ", "Here's what I think: "]
+            suffix = random.choice([" 🤔", " 💡", " ✨", " 🚀", ""])
+
+            enhanced_response = random.choice(prefixes) + final.capitalize() + suffix
+
             chat_history.append(t)
-            return final.capitalize(), get_thinking_steps("neural")
-    except Exception:
+            return enhanced_response, get_thinking_steps("neural")
+
+    except Exception as e:
+        # Silent fallback for model errors
         pass
 
-    # --- Fallback ---
-    fallbacks = [
-        f"Hmm, I don't have a perfect answer for that. 🤔\n\nTry:\n• 'Search for [topic]'\n• 'What is SenseChain?'\n• 'How does blockchain work?'\n• Type 'help' for all topics! 💙",
-        f"That's outside my current knowledge. 😅 I'm deeply specialized in SenseChain — try searching for it or type 'help'! 💙",
-        f"Not sure about that one. 🧠 Try rephrasing or type 'help'! 😊",
+    # --- Intelligent Fallback with Suggestions ---
+    intelligent_fallbacks = [
+        f"I'd love to help with that! 🤔 While I'm specialized in SenseChain and blockchain technologies, let me suggest some ways we can explore this:\n\n"
+        f"• Try: 'Search for {text}' to find current information\n"
+        f"• Ask about: blockchain, AI, sensor data, or cryptography\n"
+        f"• Tell me more about your project or interests! 💙",
+
+        f"That's a fascinating topic! 🌟 I'm continuously learning, but my expertise centers on decentralized technologies. "
+        f"Would you like me to search for '{text}' online, or shall we discuss how blockchain could relate to this? 🚀",
+
+        f"I appreciate you sharing that with me! 💭 While I don't have specific knowledge about that particular subject yet, "
+        f"I'm excellent at researching current information. Should I search for '{text}' or would you like to explore SenseChain features instead? ✨",
+
+        f"Interesting! 🤓 I'm designed to be your blockchain and AI companion, but I'm always eager to learn. "
+        f"Let me search for information about '{text}' to provide you with the most current insights. 🔍",
+
+        f"That's outside my current specialized knowledge, but I love expanding my understanding! 🧠 "
+        f"Shall I search for '{text}' to bring you up-to-date information, or would you prefer to discuss blockchain applications? 💡"
     ]
-    return random.choice(fallbacks), get_thinking_steps("fallback")
+
+    return random.choice(intelligent_fallbacks), get_thinking_steps("fallback")
 
 
 # ================== 11. CHAT LOOP ==================
