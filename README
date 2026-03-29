@@ -1,194 +1,786 @@
-Got it — you’d like your **SenseChain README** to be polished in the style of **Attedly** (a more professional, concise, and visually structured format). Right now, your README is very detailed, but it leans toward a developer’s technical manual. To make it “Attedly-like,” we’d streamline the structure, emphasize clarity, and highlight the value proposition with a balance of technical and business appeal.
-
-Here’s a refined version of your README in that style:
-
----
-
 # 🌐 SenseChain
 
-**Decentralized, AI-powered sensor data management with blockchain security.**
+**Decentralized, AI-powered sensor data management with blockchain security and real-time analytics.**
 
 ---
 
-## 🚀 Overview
-SenseChain is a next-generation platform that fuses **real-time sensor data**, **blockchain immutability**, and **AI-driven analytics**. Built with a modern full-stack architecture (FastAPI + React), it empowers organizations to collect, validate, and visualize sensor data securely and intelligently.
+## 📖 Overview
+
+SenseChain is a cutting-edge, enterprise-grade platform that seamlessly integrates blockchain technology, real-time sensor data processing, and AI-driven analytics into a unified, decentralized ecosystem. Designed to address the critical challenges of modern Internet of Things (IoT) environments, SenseChain ensures data integrity, security, and intelligent insights are paramount.
+
+### Why SenseChain?
+- **Decentralization**: Unlike traditional centralized systems prone to single points of failure, SenseChain's distributed architecture guarantees reliability, transparency, and tamper-proof data storage.
+- **AI Integration**: Leveraging advanced machine learning models, the platform provides predictive analytics, anomaly detection, and actionable insights to transform raw sensor data into strategic intelligence.
+- **Real-time Capabilities**: WebSocket-based communication enables instantaneous data streaming and live updates, essential for time-sensitive applications like industrial monitoring and smart cities.
+- **Security First**: Blockchain immutability combined with robust authentication mechanisms ensures data cannot be altered or compromised.
+- **Scalability**: Built with modern technologies like FastAPI and React, the platform handles high-throughput environments while maintaining performance.
+
+### Use Cases
+- **Industrial IoT**: Monitor manufacturing equipment, predict maintenance needs, and ensure supply chain transparency.
+- **Smart Cities**: Track environmental sensors, traffic patterns, and infrastructure health in real-time.
+- **Healthcare**: Securely manage patient monitoring devices and medical sensor data with HIPAA-compliant blockchain storage.
+- **Agriculture**: Optimize crop yields through predictive analytics on soil moisture, temperature, and weather sensors.
+- **Energy Management**: Monitor grid performance, detect anomalies, and enable predictive maintenance for renewable energy systems.
 
 ---
 
 ## ✨ Key Features
 
-### 🔧 Core
-- Real-time sensor data streaming via WebSockets  
-- Immutable blockchain-based storage  
-- AI assistant for predictive insights (PyTorch models)  
-- JWT-secured authentication & user management  
-- Interactive analytics dashboard  
+### 🔧 Core Functionality
 
-### ⚙️ Technical
-- Decentralized node architecture for reliability  
-- Robust data validation services  
-- Asynchronous MongoDB operations (Motor)  
-- RESTful API endpoints  
-- Responsive React UI with live updates  
+#### Real-time Sensor Data Processing
+- **WebSocket-based Ingestion**: Continuous, low-latency data streams using native WebSocket support for bidirectional communication.
+- **Multi-sensor Support**: Handles diverse sensor types including temperature, humidity, pressure, motion, GPS, and custom sensors.
+- **Automatic Scaling**: Dynamic load balancing and horizontal scaling to manage high-throughput environments (thousands of sensors simultaneously).
+- **Data Normalization**: Automatic conversion of raw sensor readings into standardized formats for consistent processing.
 
-### 🧠 Advanced
-- Custom ML models for predictive analytics  
-- Automated PDF report generation  
-- Dynamic node monitoring & configuration  
-- Security monitoring with audit trails  
+#### Blockchain Integration
+- **Custom Blockchain Implementation**: Proprietary Python-based blockchain with proof-of-work consensus for immutability.
+- **Cryptographic Security**: Each sensor event is cryptographically signed and stored as an immutable block in the chain.
+- **Decentralized Ledger**: Distributed across multiple nodes to prevent tampering and ensure data integrity.
+- **Audit Trail**: Complete historical record of all sensor data changes with timestamped entries.
+
+#### AI-Powered Assistant
+- **PyTorch Models**: Deep learning models trained on sensor data for predictive analytics and anomaly detection.
+- **Natural Language Processing**: Interactive chatbot interface for querying insights using conversational AI.
+- **Predictive Maintenance**: Machine learning algorithms forecast equipment failures and maintenance needs.
+- **Trend Analysis**: Automated identification of patterns and trends in sensor data streams.
+
+#### Authentication & Security
+- **JWT-based Authentication**: Secure token-based authentication with configurable expiration times.
+- **Role-Based Access Control (RBAC)**: Granular permissions for users, administrators, and API consumers.
+- **Password Security**: bcrypt hashing with salt for secure credential storage.
+- **Multi-factor Authentication**: Optional 2FA support for enhanced security.
+
+#### Interactive Analytics Dashboard
+- **Real-time Visualization**: Live charts and graphs updating as new sensor data arrives.
+- **Customizable Widgets**: Drag-and-drop dashboard components for personalized views.
+- **Historical Analysis**: Time-series data exploration with filtering, aggregation, and export capabilities.
+- **Alert System**: Configurable thresholds with email/SMS notifications for critical events.
+
+### ⚙️ Technical Features
+
+#### Decentralized Node Architecture
+- **Fault Tolerance**: Multiple redundant nodes ensure system availability even during network outages.
+- **Consensus Mechanism**: Proof-of-work algorithm ensures all nodes agree on blockchain state.
+- **Node Discovery**: Automatic peer discovery and connection management in distributed networks.
+- **Load Distribution**: Intelligent routing of sensor data across available nodes for optimal performance.
+
+#### Robust Data Validation Services
+- **Schema Validation**: JSON schema validation for incoming sensor payloads to ensure data quality.
+- **Integrity Checks**: Cryptographic verification before blockchain storage.
+- **Data Sanitization**: Automatic cleaning and normalization of malformed sensor readings.
+- **Quality Assurance**: Statistical analysis to detect and flag anomalous sensor behavior.
+
+#### Asynchronous MongoDB Operations
+- **Motor Driver**: Non-blocking database operations for high-performance concurrent requests.
+- **Optimized Queries**: Indexed collections for fast retrieval of sensor data and blockchain information.
+- **Connection Pooling**: Efficient resource management for database connections.
+- **Backup & Recovery**: Automated backup strategies with point-in-time recovery capabilities.
+
+#### RESTful API Endpoints
+- **OpenAPI Specification**: Auto-generated API documentation with interactive testing interface.
+- **Versioning**: API versioning for backward compatibility and smooth upgrades.
+- **Rate Limiting**: Configurable request limits to prevent abuse and ensure fair usage.
+- **Caching**: Redis-based caching for frequently accessed data and analytics results.
+
+#### Responsive React UI
+- **Mobile-First Design**: Optimized for smartphones, tablets, and desktops.
+- **Progressive Web App (PWA)**: Installable web app with offline capabilities.
+- **Accessibility**: WCAG 2.1 compliant for users with disabilities.
+- **Internationalization**: Multi-language support with RTL layout options.
+
+### 🧠 Advanced Capabilities
+
+#### Custom ML Models
+- **Model Training Pipeline**: Automated training workflows for domain-specific sensor data.
+- **Transfer Learning**: Pre-trained models adaptable to new sensor types and environments.
+- **Model Versioning**: Version control for ML models with rollback capabilities.
+- **Performance Monitoring**: Real-time tracking of model accuracy and prediction confidence.
+
+#### Automated PDF Report Generation
+- **Template System**: Customizable report templates for different use cases.
+- **Dynamic Content**: Automatically populated with latest sensor data and analytics.
+- **Scheduled Reports**: Automated generation and email delivery of periodic reports.
+- **Export Formats**: Support for PDF, CSV, and JSON export formats.
+
+#### Dynamic Node Monitoring & Configuration
+- **Real-time Metrics**: CPU, memory, and network usage monitoring for all nodes.
+- **Configuration Management**: Centralized configuration with version control.
+- **Auto-scaling**: Automatic addition/removal of nodes based on load.
+- **Health Checks**: Continuous monitoring with automatic failover.
+
+#### Security Monitoring with Audit Trails
+- **Comprehensive Logging**: Detailed audit trails of all system activities and user actions.
+- **Intrusion Detection**: AI-powered anomaly detection for security threats.
+- **Compliance Reporting**: Automated generation of audit reports for regulatory compliance.
+- **Incident Response**: Automated alerts and response workflows for security events.
 
 ---
 
 ## 🛠 Tech Stack
 
-**Backend**: FastAPI, MongoDB (Motor), PyTorch, NumPy, Pandas, Matplotlib, PyJWT, bcrypt, WebSockets  
-**Frontend**: React 18 (Vite), React Router, Axios, Recharts, Tailwind CSS  
-**Infrastructure**: Custom Python blockchain, pip & npm package management  
+### Backend
+- **Framework**: FastAPI (Python 3.8+) - High-performance, async-first web framework with automatic OpenAPI documentation
+- **Database**: MongoDB with Motor (async driver) - NoSQL database for flexible sensor data storage
+- **AI/ML Stack**:
+  - PyTorch 2.6.0 - Deep learning framework for custom AI models
+  - NumPy 2.4.2 - Numerical computing and array operations
+  - Pandas 2.3.3 - Data manipulation and analysis
+  - Matplotlib 3.10.8 - Data visualization for reports
+  - Altair 6.0.0 - Declarative statistical visualization
+- **Authentication**: PyJWT 2.12.1, bcrypt 5.0.0 - Secure token generation and password hashing
+- **WebSockets**: Native FastAPI WebSocket support - Real-time bidirectional communication
+- **Data Processing**: PyArrow 23.0.1 - Efficient columnar data processing
+- **HTTP Client**: httpx 0.28.1 - Async HTTP client for external API integrations
+- **Environment Management**: python-dotenv 1.2.1 - Secure configuration management
+
+### Frontend
+- **Framework**: React 18.2.0 with Vite 5.1.4 - Modern, fast development and building
+- **Routing**: React Router 6.x - Declarative routing for single-page application
+- **HTTP Client**: Axios 1.6.7 - Promise-based HTTP client for API communication
+- **Charts & Visualization**: Recharts 2.12.0 - Composable charting library built on React
+- **Icons**: Lucide React 0.344.0 - Beautiful, customizable icons
+- **Styling**: Tailwind CSS - Utility-first CSS framework for responsive design
+- **State Management**: React Context API - Built-in state management for authentication and global state
+- **Build Tools**: ESLint 8.56.0, Vite plugins - Code quality and fast development
+
+### Infrastructure & Tools
+- **Blockchain**: Custom Python implementation with cryptographic hashing (SHA-256)
+- **Environment**: Python virtual environment (venv) for dependency isolation
+- **Package Management**: pip (Python), npm (Node.js)
+- **Development Tools**: Git for version control, VS Code for development
+- **Testing**: pytest (Python), Jest (JavaScript) - Unit and integration testing
+- **Deployment**: Gunicorn + Uvicorn workers for production backend deployment
+
+---
+
+## 📋 Prerequisites
+
+Before installing and running SenseChain, ensure your system meets these requirements:
+
+### System Requirements
+- **Operating System**: Windows 10+, macOS 10.15+, Ubuntu 18.04+ or equivalent Linux distribution
+- **CPU**: Multi-core processor (4+ cores recommended for optimal performance)
+- **RAM**: 8GB minimum, 16GB recommended for development and testing
+- **Storage**: 10GB free space for installation, data, and logs
+- **Network**: Stable internet connection for package downloads and real-time features
+
+### Software Dependencies
+- **Python 3.8 or higher**: Core runtime for backend services
+  - Download from [python.org](https://python.org)
+  - Ensure `python` and `pip` are in your system PATH
+- **Node.js 16 or higher**: Runtime for frontend development and building
+  - Download from [nodejs.org](https://nodejs.org)
+  - Includes npm package manager
+- **MongoDB 4.4 or higher**: Database server for data persistence
+  - Community Server edition recommended
+  - Can be installed locally or use MongoDB Atlas (cloud)
+- **Git**: Version control system for cloning and managing the repository
+  - Download from [git-scm.com](https://git-scm.com)
+
+### Optional but Recommended
+- **Visual Studio Code**: IDE with excellent Python and JavaScript support
+- **Postman or similar**: API testing and development tool
+- **Docker**: Containerization for consistent deployment environments
+- **Redis**: Caching layer for improved performance (future enhancement)
 
 ---
 
 ## 📦 Installation
 
-### 1. Clone
+Follow these detailed steps to set up SenseChain on your local development environment.
+
+### Step 1: Clone the Repository
 ```bash
+# Clone the SenseChain repository
 git clone https://github.com/yourusername/sensechain.git
+
+# Navigate to the project directory
 cd sensechain
+
+# Verify the clone was successful
+ls -la
 ```
 
-### 2. Backend
+### Step 2: Backend Setup
+
+#### Create Python Virtual Environment
 ```bash
+# Navigate to backend directory
 cd Backend
+
+# Create virtual environment
 python -m venv myenv
-source myenv/bin/activate   # macOS/Linux
-myenv\Scripts\activate      # Windows
-pip install -r requirements.txt
+
+# Activate virtual environment
+# On Windows:
+myenv\Scripts\activate
+# On macOS/Linux:
+source myenv/bin/activate
+
+# Verify activation (you should see (myenv) in your prompt)
+which python
 ```
 
-Add `.env`:
-```env
-MONGODB_URL=mongodb://localhost:27017
-JWT_SECRET_KEY=your-secret-key
-JWT_ALGORITHM=HS256
-```
-
-### 3. Frontend
+#### Install Python Dependencies
 ```bash
+# Install all required packages
+pip install -r requirements.txt
+
+# Verify installation
+pip list | grep fastapi
+pip list | grep torch
+```
+
+#### Configure Environment Variables
+Create a `.env` file in the `Backend` directory:
+```env
+# MongoDB Configuration
+MONGODB_URL=mongodb://localhost:27017
+DATABASE_NAME=sensechain_db
+
+# JWT Configuration
+JWT_SECRET_KEY=your-super-secure-secret-key-here-change-this-in-production
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# Application Configuration
+APP_ENV=development
+DEBUG=True
+HOST=0.0.0.0
+PORT=8000
+
+# Optional: External API Keys (if using external services)
+# OPENAI_API_KEY=your-openai-key
+# SERPAPI_KEY=your-serpapi-key
+```
+
+**Security Note**: Never commit the `.env` file to version control. Add it to `.gitignore`.
+
+#### Setup MongoDB
+```bash
+# Ensure MongoDB is running
+# On Windows (if installed as service):
+net start MongoDB
+
+# On macOS/Linux:
+sudo systemctl start mongod
+# or
+brew services start mongodb-community
+
+# Verify MongoDB is running
+mongosh --eval "db.runCommand('ping')"
+```
+
+### Step 3: Frontend Setup
+```bash
+# Navigate to frontend directory
 cd ../Frontend
+
+# Install Node.js dependencies
 npm install
+
+# Verify installation
+npm list react
+npm list vite
+```
+
+### Step 4: Verify Installation
+```bash
+# Check backend dependencies
+cd ../Backend
+source myenv/bin/activate  # or myenv\Scripts\activate on Windows
+python -c "import fastapi, torch, motor; print('Backend dependencies OK')"
+
+# Check frontend dependencies
+cd ../Frontend
+npm run build --dry-run
 ```
 
 ---
 
 ## ▶️ Usage
 
-**Backend**  
+### Starting the Application
+
+#### Backend Server
 ```bash
+# Navigate to backend directory
+cd Backend
+
+# Activate virtual environment
+source myenv/bin/activate  # macOS/Linux
+# or
+myenv\Scripts\activate     # Windows
+
+# Start development server with auto-reload
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# For production deployment
+gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
 
-**Frontend**  
+#### Frontend Development Server
 ```bash
+# Navigate to frontend directory
+cd Frontend
+
+# Start development server
 npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
-Access:  
-- Frontend → http://localhost:5173  
-- Backend API → http://localhost:8000  
-- Docs → http://localhost:8000/docs  
+### Accessing the Application
+
+Once both servers are running, access SenseChain through:
+
+- **Frontend Interface**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs (interactive Swagger UI)
+- **Alternative Docs**: http://localhost:8000/redoc (ReDoc format)
+
+### User Workflow
+
+1. **Registration**: Visit the frontend and create a new account
+2. **Login**: Authenticate using your credentials
+3. **Dashboard**: View real-time sensor data and system status
+4. **Analytics**: Explore data visualizations and AI insights
+5. **AI Assistant**: Interact with the AI for data analysis
+6. **Node Settings**: Configure and monitor blockchain nodes
+7. **Security Settings**: Manage authentication and access controls
+
+### Configuration Options
+
+#### Environment Variables
+- `DEBUG`: Enable/disable debug mode
+- `HOST`: Server bind address
+- `PORT`: Server port
+- `MONGODB_URL`: Database connection string
+- `JWT_SECRET_KEY`: Secret key for JWT signing
+
+#### Runtime Options
+- `--reload`: Enable auto-reload for development
+- `--workers`: Number of worker processes for production
+- `--log-level`: Logging verbosity (debug, info, warning, error)
 
 ---
 
-## 📊 API Endpoints
+## 📊 API Documentation
 
-**Auth**  
-- `POST /auth/signup` – Register  
-- `POST /auth/login` – Login  
-- `POST /auth/refresh` – Refresh token  
+SenseChain provides a comprehensive RESTful API with real-time WebSocket support. All endpoints are documented using OpenAPI 3.0 specification.
 
-**Data**  
-- `GET /chain` – Blockchain data  
-- `POST /sensor-data` – Submit sensor data  
-- `GET /analytics` – Analytics dashboard  
-- `WebSocket /ws` – Real-time stream  
+### Authentication Endpoints
 
-**AI**  
-- `POST /chat` – AI assistant  
-- `GET /generate-report` – PDF reports  
+#### POST /auth/signup
+Register a new user account.
+
+**Request Body**:
+```json
+{
+  "username": "string",
+  "email": "user@example.com",
+  "password": "string",
+  "full_name": "string"
+}
+```
+
+**Response**:
+```json
+{
+  "message": "User created successfully",
+  "user_id": "string"
+}
+```
+
+#### POST /auth/login
+Authenticate user and receive access token.
+
+**Request Body**:
+```json
+{
+  "username": "string",
+  "password": "string"
+}
+```
+
+**Response**:
+```json
+{
+  "access_token": "string",
+  "token_type": "bearer",
+  "expires_in": 1800
+}
+```
+
+#### POST /auth/refresh
+Refresh an expired access token.
+
+**Headers**:
+```
+Authorization: Bearer <refresh_token>
+```
+
+### Data Endpoints
+
+#### GET /chain
+Retrieve current blockchain data.
+
+**Response**:
+```json
+{
+  "chain": [...],
+  "length": 42,
+  "integrity": true,
+  "last_block": {...}
+}
+```
+
+#### POST /sensor-data
+Submit new sensor data to the blockchain.
+
+**Headers**:
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body**:
+```json
+{
+  "sensor_id": "string",
+  "sensor_type": "temperature",
+  "value": 23.5,
+  "unit": "celsius",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "location": {
+    "lat": 40.7128,
+    "lng": -74.0060
+  }
+}
+```
+
+#### GET /analytics
+Retrieve analytics data and insights.
+
+**Query Parameters**:
+- `start_date`: ISO 8601 date string
+- `end_date`: ISO 8601 date string
+- `sensor_type`: Filter by sensor type
+- `limit`: Maximum number of results
+
+### AI Endpoints
+
+#### POST /chat
+Interact with the AI assistant.
+
+**Request Body**:
+```json
+{
+  "message": "Analyze temperature trends for the last 24 hours",
+  "context": "sensor_data"
+}
+```
+
+**Response**:
+```json
+{
+  "response": "Based on the data, temperature has been stable...",
+  "confidence": 0.95,
+  "insights": [...]
+}
+```
+
+#### GET /generate-report
+Generate a PDF analytics report.
+
+**Query Parameters**:
+- `report_type`: "daily" | "weekly" | "monthly"
+- `format`: "pdf" | "json"
+
+### WebSocket Endpoints
+
+#### /ws
+Real-time data streaming WebSocket.
+
+**Connection**:
+```javascript
+const ws = new WebSocket('ws://localhost:8000/ws');
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('New sensor data:', data);
+};
+```
+
+**Message Format**:
+```json
+{
+  "type": "sensor_update",
+  "data": {
+    "sensor_id": "temp_001",
+    "value": 24.1,
+    "timestamp": "2024-01-15T10:35:00Z"
+  }
+}
+```
 
 ---
 
 ## 📂 Project Structure
+
 ```
 SENSECHAIN/
 ├── Backend/
-│   ├── app/ (auth, models, services, utils)
-│   ├── requirements.txt
-│   └── myenv/
+│   ├── app/
+│   │   ├── __init__.py                 # Application initialization
+│   │   ├── main.py                     # FastAPI application entry point
+│   │   ├── auth/
+│   │   │   ├── __init__.py
+│   │   │   ├── auth_bearer.py          # JWT bearer token validation
+│   │   │   ├── auth_handler.py         # Authentication logic
+│   │   │   └── auth_routes.py          # Authentication API routes
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── block.py                # Blockchain block model
+│   │   │   └── blockchain.py           # Blockchain implementation
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── sensor_service.py       # Sensor data processing
+│   │   │   └── validation_service.py   # Data validation logic
+│   │   └── utils/
+│   │       ├── __init__.py
+│   │       └── hash_utils.py           # Cryptographic utilities
+│   ├── requirements.txt                # Python dependencies
+│   ├── myenv/                          # Virtual environment
+│   └── blockchain_data.json            # Blockchain persistence
 ├── Frontend/
-│   ├── src/ (components, pages, context, hooks, services)
-│   ├── package.json
-│   └── vite.config.js
-├── start_sensechain.bat
-└── README.md
+│   ├── public/
+│   │   └── vite.svg                    # Vite logo
+│   ├── src/
+│   │   ├── App.jsx                     # Main React application
+│   │   ├── main.jsx                    # React entry point
+│   │   ├── index.css                   # Global styles
+│   │   ├── assets/                     # Static assets
+│   │   ├── components/
+│   │   │   ├── AIAssistant.jsx         # AI chat component
+│   │   │   └── Header.jsx              # Navigation header
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx         # Authentication context
+│   │   ├── hooks/
+│   │   │   ├── useBlockchain.js        # Blockchain data hook
+│   │   │   ├── usePolling.js           # Data polling hook
+│   │   │   └── useWebsocket.js         # WebSocket connection hook
+│   │   ├── pages/
+│   │   │   ├── About.jsx               # About page
+│   │   │   ├── Analytics.jsx           # Analytics dashboard
+│   │   │   ├── Dashboard.jsx           # Main dashboard
+│   │   │   ├── ForgotPassword.jsx      # Password recovery
+│   │   │   ├── Login.jsx               # Login page
+│   │   │   ├── NodeSettings.jsx        # Node configuration
+│   │   │   ├── OtpVerification.jsx     # OTP verification
+│   │   │   ├── Security.jsx            # Security settings
+│   │   │   └── UplinkTerminal.jsx      # Terminal interface
+│   │   └── services/
+│   │       └── api.js                  # API service functions
+│   ├── package.json                    # Node.js dependencies
+│   ├── vite.config.js                  # Vite configuration
+│   └── eslint.config.js                # ESLint configuration
+├── start_sensechain.bat                # Windows startup script
+├── package.json                        # Root package configuration
+└── README.md                           # This file
 ```
 
 ---
 
 ## 🧪 Development
 
-**Tests**  
+### Testing
+
+#### Backend Testing
 ```bash
-# Backend
+# Navigate to backend directory
+cd Backend
+
+# Activate virtual environment
+source myenv/bin/activate
+
+# Run all tests
 pytest
-# Frontend
-npm test
+
+# Run specific test file
+pytest tests/test_auth.py
+
+# Run with coverage
+pytest --cov=app --cov-report=html
 ```
 
-**Production Build**  
+#### Frontend Testing
 ```bash
-npm run build
-gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
+# Navigate to frontend directory
+cd Frontend
+
+# Run unit tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
 ```
+
+### Building for Production
+
+#### Frontend Build
+```bash
+cd Frontend
+
+# Create optimized production build
+npm run build
+
+# The build artifacts will be stored in the `dist/` directory
+```
+
+#### Backend Deployment
+```bash
+cd Backend
+
+# Using Gunicorn for production
+gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+
+# Using Docker
+docker build -t sensechain-backend .
+docker run -p 8000:8000 sensechain-backend
+```
+
+### Code Quality
+
+#### Linting
+```bash
+# Backend linting (if configured)
+flake8 app/
+black app/
+
+# Frontend linting
+cd Frontend
+npm run lint
+```
+
+#### Pre-commit Hooks
+Consider setting up pre-commit hooks for automated code quality checks:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+### Contributing Guidelines
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes with proper tests
+4. Ensure all tests pass
+5. Update documentation if needed
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
 
 ---
 
 ## 🔒 Security
-- JWT authentication  
-- Password hashing (bcrypt)  
-- CORS protection  
-- Input validation & sanitization  
-- Secure WebSocket connections  
+
+SenseChain implements multiple layers of security to protect sensitive sensor data and ensure system integrity.
+
+### Authentication & Authorization
+- **JWT Tokens**: Stateless authentication with configurable expiration
+- **Password Security**: bcrypt hashing with salt and pepper
+- **Role-Based Access**: Granular permissions for different user types
+- **Session Management**: Secure token refresh and invalidation
+
+### Data Protection
+- **Encryption**: Data encrypted at rest and in transit
+- **Blockchain Immutability**: Cryptographic guarantees against data tampering
+- **Input Validation**: Comprehensive validation of all user inputs
+- **SQL Injection Prevention**: Parameterized queries and ORM protection
+
+### Network Security
+- **CORS Protection**: Configurable cross-origin resource sharing
+- **Rate Limiting**: API rate limiting to prevent abuse
+- **HTTPS Enforcement**: SSL/TLS encryption for all communications
+- **WebSocket Security**: Secure WebSocket connections with authentication
+
+### Monitoring & Auditing
+- **Comprehensive Logging**: Detailed audit trails of all system activities
+- **Intrusion Detection**: AI-powered anomaly detection for security threats
+- **Compliance Reporting**: Automated generation of security audit reports
+- **Incident Response**: Automated alerts and response workflows
+
+### Best Practices
+- **Security Headers**: HTTP security headers for additional protection
+- **Dependency Scanning**: Regular security audits of third-party packages
+- **Code Reviews**: Mandatory security reviews for all code changes
+- **Regular Updates**: Timely application of security patches
 
 ---
 
 ## 📌 Roadmap
-- Multi-node blockchain network  
-- Advanced AI analytics models  
-- Mobile app integration  
-- IoT device support  
-- Enhanced security protocols  
-- Cloud deployment options  
+
+### Phase 1: Core Platform (Current)
+- ✅ Real-time sensor data processing
+- ✅ Blockchain integration
+- ✅ AI assistant
+- ✅ Authentication system
+- ✅ Analytics dashboard
+
+### Phase 2: Enhanced Features (Q2 2026)
+- [ ] Multi-node blockchain network
+- [ ] Advanced AI analytics models
+- [ ] Mobile application (React Native)
+- [ ] IoT device integration protocols
+- [ ] Enhanced security protocols
+
+### Phase 3: Enterprise Features (Q4 2026)
+- [ ] Cloud deployment options (AWS, Azure, GCP)
+- [ ] Advanced machine learning pipelines
+- [ ] Multi-tenant architecture
+- [ ] API marketplace
+- [ ] Enterprise support and SLAs
+
+### Phase 4: Ecosystem Expansion (2027)
+- [ ] Third-party integrations
+- [ ] Plugin architecture
+- [ ] Decentralized autonomous organization (DAO) features
+- [ ] Global sensor network
+- [ ] Advanced predictive analytics
+
+### Long-term Vision (2028+)
+- [ ] Quantum-resistant cryptography
+- [ ] Interplanetary sensor networks
+- [ ] AI-driven autonomous systems
+- [ ] Metaverse integration
 
 ---
 
 ## 👥 Team
-- **Shakti Singh** – Lead Developer  
-- **Awani Patel** – Collaborator  
-- **Sagar Kumar** – Collaborator  
-- **Ankit Viahwakarma** – Collaborator  
+
+- **Shakti Singh** - Lead Developer (Leader)
+- **Awani Patel** - Collaborator
+- **Sagar Kumar** - Collaborator
+- **Ankit Viahwakarma** - Collaborator
 
 ---
 
 ## 📜 License
-MIT License – see `[Looks like the result wasn't safe to show. Let's switch things up and try something else!]`
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+The MIT License allows for free use, modification, and distribution of the software, provided that the copyright notice and permission notice are included in all copies or substantial portions of the software.
 
 ---
 
 ## 💡 Tagline
-**SenseChain** – Revolutionizing sensor data management with blockchain and AI.
 
----
-
-This version is **cleaner, more visual, and business-friendly**, while still keeping all the technical depth. It uses icons, concise sections, and a professional tone — very much in line with “Attedly-like” documentation.
-
-👉 Do you want me to also create a **shorter, one-page “marketing-style” README** (like a landing page pitch), or keep it strictly developer-focused?
+**SenseChain** - Revolutionizing sensor data management with blockchain and AI.
