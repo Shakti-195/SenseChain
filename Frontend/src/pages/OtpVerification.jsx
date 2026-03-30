@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, RefreshCw, ChevronLeft, Fingerprint, Loader2, Zap, ArrowRight } from 'lucide-react';
+import { ShieldCheck, RefreshCw, ChevronLeft, Fingerprint, Loader2, ArrowRight } from 'lucide-react';
 
 const OtpVerification = () => {
     const [otp, setOtp] = useState('');
@@ -14,10 +14,9 @@ const OtpVerification = () => {
     const location = useLocation();
     const email = location.state?.email;
 
-    // Dark Mode Sync logic
-    const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
+    // Dark Mode Sync
     useEffect(() => {
-        const observer = new MutationObserver(() => setIsDark(document.documentElement.classList.contains('dark')));
+        const observer = new MutationObserver(() => {});
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         return () => observer.disconnect();
     }, []);
@@ -29,66 +28,55 @@ const OtpVerification = () => {
         return () => clearInterval(interval);
     }, []);
 
-   // ... existing imports ...
-
-const handleVerify = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-        // ✅ UPDATED FOR CLOUD (Render URL)
-        const res = await fetch('https://sensechain.onrender.com/auth/verify-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, otp })
-        });
-        const data = await res.json();
-        if (res.ok) {
-            setIsSuccess(true);
-            setTimeout(() => navigate('/'), 1500);
-        } else {
-            setError(data.detail || "Invalid OTP");
-            setOtp('');
+    const handleVerify = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+            const res = await fetch('https://sensechain.onrender.com/auth/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, otp })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setIsSuccess(true);
+                setTimeout(() => navigate('/'), 1500);
+            } else {
+                setError(data.detail || "Invalid OTP");
+                setOtp('');
+            }
+        } catch (err) {
+            console.error("Verification Error:", err);
+            setError("Server not available");
+        } finally {
+            setLoading(false);
         }
-    } catch (err) {
-        // Console log zaroor check karna F12 mein agar error aaye
-        console.error("Verification Error:", err);
-        setError("Server not available");
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
-const handleResend = async () => {
-    setTimer(59);
-    try {
-        // ✅ UPDATED FOR CLOUD (Render URL)
-        const res = await fetch('https://sensechain.onrender.com/auth/send-otp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const data = await res.json();
-        alert(`Your OTP is: ${data.otp}`);
-    } catch (err) {
-        console.error("Resend Error:", err);
-        setError("Failed to resend OTP");
-    }
-};
+    const handleResend = async () => {
+        setTimer(59);
+        try {
+            const res = await fetch('https://sensechain.onrender.com/auth/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await res.json();
+            alert(`Your OTP is: ${data.otp}`);
+        } catch (err) {
+            console.error("Resend Error:", err);
+            setError("Failed to resend OTP");
+        }
+    };
 
-// ... remaining component code ...
+    return (
         <div className="min-h-screen flex items-center justify-center p-6 bg-[#F5F5F7] dark:bg-[#020617] relative overflow-hidden transition-colors duration-500">
-            {/* 🌌 Cinematic Background Blobs - Synced with Theme */}
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/10 blur-[120px] rounded-full" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-400/10 blur-[120px] rounded-full" />
 
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                className="w-full max-w-[420px] z-10"
-            >
-                <div className="bg-white/70 dark:bg-white/5 backdrop-blur-2xl border border-white/40 dark:border-white/10 rounded-[2.5rem] p-10 shadow-2xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden">
-                    
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-[420px] z-10">
+                <div className="bg-white/70 dark:bg-white/5 backdrop-blur-2xl border border-white/40 dark:border-white/10 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
                     <AnimatePresence mode="wait">
                         {!isSuccess ? (
                             <motion.div key="otp-input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -113,13 +101,9 @@ const handleResend = async () => {
                                             required
                                             className="w-full bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-3xl p-6 text-5xl font-black tracking-[0.5em] pl-[0.5em] outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all dark:text-white tabular-nums shadow-inner"
                                         />
-                                        <AnimatePresence>
-                                            {error && (
-                                                <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 text-xs font-black text-rose-500 uppercase tracking-widest italic">
-                                                    {error}
-                                                </motion.p>
-                                            )}
-                                        </AnimatePresence>
+                                        {error && (
+                                            <p className="mt-4 text-xs font-black text-rose-500 uppercase tracking-widest italic">{error}</p>
+                                        )}
                                     </div>
 
                                     <button 
