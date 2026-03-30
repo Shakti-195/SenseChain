@@ -8,6 +8,8 @@ import {
   Play, Pause, Terminal, Radio, Share2, Copy, Check, Cpu, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+// ✅ IMPORT CENTRAL API
+import API from '../services/api';
 
 const Dashboard = ({
   chain = [],
@@ -25,7 +27,7 @@ const Dashboard = ({
   const [simNode, setSimNode] = useState("SENSE_NODE_SIM_01");
   const [simLogs, setSimLogs] = useState([]);
 
-  // 🧠 --- ORIGINAL AI ANALYSIS LOGIC ---
+  // 🧠 --- ORIGINAL AI ANALYSIS LOGIC (Kept exactly as is) ---
   const aiAnalysis = useMemo(() => {
     if (chain.length < 2) return { status: 'Initializing', message: 'Gathering neural data...', score: 100, anomalies: [] };
     const lastBlocks = chain.slice(-5);
@@ -63,7 +65,7 @@ const Dashboard = ({
     }));
   }, [chain]);
 
-  // ✅ SIMULATION LOG ENGINE (Synced to Apple Speed)
+  // ✅ SIMULATION LOG ENGINE
   useEffect(() => {
     if (isSimulating) {
       const interval = setInterval(() => {
@@ -80,12 +82,17 @@ const Dashboard = ({
     }
   }, [isSimulating, simNode, chainHeight]);
 
+  // ✅ UPDATED: Simulation Toggle using Cloud API
   const toggleSim = async () => {
     if (!isSimulating) {
       try {
-        await fetch(`http://localhost:8000/trigger_simulated_node/${simNode}`, { method: 'POST' });
+        // ✅ Using API helper instead of direct localhost fetch
+        await API.post(`/trigger_simulated_node/${simNode}`);
         setIsSimulating(true);
-      } catch (err) { console.error("Sim Error", err); }
+      } catch (err) { 
+        console.error("Simulation Uplink Failed", err); 
+        alert("Node simulation failed. Is the Render backend awake?");
+      }
     } else {
       setIsSimulating(false);
     }
@@ -135,7 +142,7 @@ const Dashboard = ({
         </div>
       </div>
 
-      {/* ── STATS GRID (APPLE STYLE) ── */}
+      {/* ── STATS GRID ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Ledger Height" value={chainHeight} sub="Verified Blocks" color="blue" icon={<Database size={22} />} onClick={() => setActiveModal({title: 'Ledger Analytics', val: chainHeight, desc: 'Every block in SenseChain is linked via SHA-256 Fingerprints.'})} />
         <StatCard title="Health Score" value={`${aiAnalysis.score}%`} sub="Node Stability" color={aiAnalysis.score > 80 ? "emerald" : "rose"} icon={<Heart size={22} />} pulse={aiAnalysis.score < 80} onClick={() => setActiveModal({title: 'Stability Index', val: `${aiAnalysis.score}%`, desc: 'Based on neural drift and cryptographic consistency.'})} />
@@ -177,29 +184,29 @@ const Dashboard = ({
         <AnimatePresence>
           {isSimulating && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8 pt-12 border-t border-slate-200 dark:border-white/5">
-               <div className="lg:col-span-2 bg-slate-950/90 rounded-[32px] p-8 border border-blue-500/20 font-mono text-[11px] space-y-4 relative overflow-hidden shadow-inner">
-                  <div className="absolute top-0 right-0 p-8 opacity-5"><Cpu size={120}/></div>
-                  {simLogs.map((log, i) => (
+                <div className="lg:col-span-2 bg-slate-950/90 rounded-[32px] p-8 border border-blue-500/20 font-mono text-[11px] space-y-4 relative overflow-hidden shadow-inner">
+                   <div className="absolute top-0 right-0 p-8 opacity-5"><Cpu size={120}/></div>
+                   {simLogs.map((log, i) => (
                     <motion.p initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} key={i} className="text-slate-400 flex gap-5 border-l-2 border-blue-600/30 pl-4">
-                       <span className="text-blue-500 font-black tabular-nums opacity-60">[{new Date().toLocaleTimeString()}]</span>
-                       <span className="italic tracking-tight">{log}</span>
+                        <span className="text-blue-500 font-black tabular-nums opacity-60">[{new Date().toLocaleTimeString()}]</span>
+                        <span className="italic tracking-tight">{log}</span>
                     </motion.p>
                   ))}
-               </div>
-               <div className="bg-white/40 dark:bg-white/5 rounded-[32px] p-10 flex flex-col items-center justify-center text-center border border-white/20 dark:border-white/5 shadow-xl">
+                </div>
+                <div className="bg-white/40 dark:bg-white/5 rounded-[32px] p-10 flex flex-col items-center justify-center text-center border border-white/20 dark:border-white/5 shadow-xl">
                   <div className="relative mb-6">
                      <motion.div animate={{ scale: [1, 1.8], opacity: [0.3, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute inset-0 bg-emerald-500 rounded-full" />
                      <div className="relative p-7 bg-emerald-500 text-white rounded-full shadow-[0_0_40px_rgba(16,185,129,0.4)]"><Radio size={36} /></div>
                   </div>
                   <h4 className="text-sm font-black dark:text-white uppercase tracking-[0.3em]">{simNode}</h4>
                   <p className="text-[10px] font-bold text-emerald-500 uppercase mt-2 animate-pulse tracking-widest">Broadcasting neural Packets...</p>
-               </div>
+                </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* ── CHARTS & AI HEATMAP SECTION ── */}
+      {/* ── CHARTS SECTION ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white/60 dark:bg-[#0B1220]/60 backdrop-blur-3xl rounded-[40px] p-10 border border-white dark:border-white/5 shadow-2xl relative overflow-hidden">
           <div className="flex items-center justify-between mb-12">
@@ -234,7 +241,7 @@ const Dashboard = ({
           </div>
         </div>
 
-        {/* APPLE AI SIDEBAR */}
+        {/* AI SIDEBAR */}
         <div className="bg-slate-900 dark:bg-black rounded-[40px] p-12 text-white shadow-2xl relative overflow-hidden group border border-white/5 flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
           <div className="relative z-10 space-y-12">
@@ -270,7 +277,7 @@ const Dashboard = ({
         </div>
       </div>
 
-      {/* ── VERIFIED LEDGER TABLE (APPLE SaaS) ── */}
+      {/* ── VERIFIED LEDGER TABLE ── */}
       <div className="bg-white/60 dark:bg-[#0B1220]/60 backdrop-blur-3xl rounded-[40px] border border-white dark:border-white/5 shadow-2xl overflow-hidden mb-10">
           <div className="p-12 border-b border-slate-200 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-10">
             <div className="flex items-center gap-7">
@@ -327,7 +334,7 @@ const Dashboard = ({
           </div>
       </div>
 
-      {/* ── DETAIL MODAL (APPLE SaaS STYLE) ── */}
+      {/* ── DETAIL MODAL ── */}
       <AnimatePresence>{activeModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-[#020617]/80 backdrop-blur-xl" onClick={() => setActiveModal(null)}>
             <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 30 }} className="bg-white dark:bg-[#0B1220] w-full max-w-lg rounded-[50px] p-16 shadow-[0_40px_100px_rgba(0,0,0,0.4)] border border-white dark:border-white/10 relative overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -348,7 +355,7 @@ const Dashboard = ({
   );
 };
 
-// --- SUPPORTING COMPONENTS ---
+// --- STAT CARD COMPONENT ---
 const StatCard = ({ title, value, sub, icon, color, pulse, onClick }) => {
   const themes = { 
     blue: "border-blue-500 text-blue-600 bg-blue-50/20 shadow-blue-500/5", 
