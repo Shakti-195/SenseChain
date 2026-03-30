@@ -2,7 +2,8 @@ import axios from "axios";
 
 // ✅ UPDATED FOR RENDER DEPLOYMENT
 // Render ka URL use kar rahe hain, backup ke liye localhost rakha hai
-const API_BASE_URL = "https://sensechain.onrender.com";
+// ✅ Professional Way: Pehle environment variable dhoondo, nahi toh fallback use karo
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://sensechain.onrender.com";
 
 // Internal flags to prevent redirection loops
 let isRedirecting = false;
