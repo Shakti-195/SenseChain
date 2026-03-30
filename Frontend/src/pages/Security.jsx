@@ -5,14 +5,15 @@ import {
   Fingerprint, Lock, Unlock, ShieldX, ChevronRight,
   AlertCircle
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion"; // Optional: for apple-like smoothness
+import { motion, AnimatePresence } from "framer-motion"; 
+// ✅ IMPORT CENTRAL API INSTANCE
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
   const { token } = useAuth();
 
-  // --- LOCAL UI STATES ---
+  // --- LOCAL UI STATES (Original Logic Kept) ---
   const [isRepairing, setIsRepairing] = useState(false);
   const [tamperIndex, setTamperIndex] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
@@ -27,7 +28,7 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
     }
   }, [chainHeight]);
 
-  // ───────── REAL-TIME ATTACK ─────────
+  // ───────── REAL-TIME ATTACK (Updated for Cloud) ─────────
   const simulateTamper = async () => {
     if (chainHeight === 0) {
       setLocalError("Ledger is empty. Initializing nodes required.");
@@ -39,28 +40,32 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
     setStatusMsg("Executing manual entropy injection...");
 
     try {
-      // Backend automatically broadcasts via WebSockets after this call
-      await api.post(`/tamper_block/${tamperIndex}?new_temperature=99.9`);
+      // ✅ Updated to use our Central API helper
+      // Sending data via POST body is safer than query params for cloud firewalls
+      await api.post(`/tamper_block/${tamperIndex}`, { 
+        new_temperature: 99.9 
+      });
       
       setStatusMsg(`Breach payload deployed at Index #${tamperIndex}`);
       setTimeout(() => setStatusMsg(null), 3000);
     } catch (err) {
-      setLocalError("Node Firewall prevented the injection.");
+      console.error("Forensic Blockade:", err);
+      setLocalError("Node Firewall prevented the injection or Backend is offline.");
     } finally {
       setIsScanning(false);
     }
   };
 
-  // ───────── REAL-TIME HEALING ─────────
+  // ───────── REAL-TIME HEALING (Updated for Cloud) ─────────
   const handleRepair = async () => {
     setIsRepairing(true);
     setRepairStep("Initializing forensic recovery...");
     setLocalError(null);
 
     try {
-      // Step 1: Request Backend to Recalculate
+      // ✅ Request Backend to Recalculate SHA-256 Linkage
       await api.post("/repair_chain");
-      // WS will broadcast "integrity: true" to all clients instantly
+      
       setStatusMsg("Neural link integrity restored.");
       setTimeout(() => setStatusMsg(null), 3000);
     } catch (err) {
@@ -71,11 +76,13 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
     }
   };
 
-  // ───────── PREMIUM EXPORTS ─────────
+  // ───────── PREMIUM EXPORTS (Robust Cloud Handling) ─────────
   const handleExport = async (format) => {
     try {
       setStatusMsg(`Compiling ${format.toUpperCase()} Audit...`);
       const endpoint = format === "pdf" ? "/export_pdf" : "/export_report";
+      
+      // ✅ API call with blob response type for file downloads
       const response = await api.get(endpoint, { responseType: "blob" });
       
       const blob = new Blob([response.data], { 
@@ -91,7 +98,7 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
       window.URL.revokeObjectURL(url);
       setStatusMsg(null);
     } catch (err) {
-      setLocalError("Export service temporarily unreachable.");
+      setLocalError("Export service temporarily unreachable on Cloud Node.");
     }
   };
 
@@ -125,24 +132,28 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
       {/* ── NOTIFICATION TOASTS ── */}
       <AnimatePresence>
         {(localError || statusMsg) && (
-          <div className={`fixed top-24 right-10 z-[100] p-4 rounded-2xl border backdrop-blur-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right-10 duration-500 ${
-            localError ? "bg-rose-50/90 border-rose-100 text-rose-600" : "bg-blue-50/90 border-blue-100 text-blue-600"
-          }`}>
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className={`fixed top-24 right-10 z-[100] p-4 rounded-2xl border backdrop-blur-xl shadow-2xl flex items-center gap-3 ${
+              localError ? "bg-rose-50/90 border-rose-100 text-rose-600" : "bg-blue-50/90 border-blue-100 text-blue-600"
+            }`}
+          >
             {localError ? <AlertCircle size={20} /> : <Activity size={20} />}
             <span className="text-xs font-black uppercase tracking-widest">{localError || statusMsg}</span>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* 🔥 MAIN STATUS HERO (The Apple Core) */}
+        {/* 🔥 MAIN STATUS HERO (Apple Style - Logic Preserved) */}
         <div className={`relative rounded-[40px] border-2 p-10 lg:p-16 overflow-hidden transition-all duration-1000 shadow-2xl
           ${integrity 
             ? "bg-white dark:bg-[#1C1C1E] border-emerald-100/50 dark:border-emerald-500/10" 
             : "bg-white dark:bg-[#1C1C1E] border-rose-200/50 dark:border-rose-500/20 shadow-rose-500/5"}`}>
           
-          {/* Background Decorative Fingerprint */}
           <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
               <Fingerprint size={280} className={integrity ? "text-emerald-500" : "text-rose-500"} />
           </div>
@@ -191,10 +202,9 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
           </div>
         </div>
 
-        {/* ── BOTTOM GRID ── */}
+        {/* ── BOTTOM GRID (Original Terminals Kept) ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {/* INJECTION TERMINAL */}
           <div className="bg-white dark:bg-[#1C1C1E] border border-slate-200 dark:border-white/5 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
               <div className="flex items-center gap-4 mb-12">
                   <div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-2xl group-hover:rotate-12 transition-transform duration-500">
@@ -225,7 +235,6 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
               <p className="text-[9px] font-bold text-slate-400 uppercase mt-10 tracking-[0.2em] text-center opacity-60 italic">Authorized Pen-Testing Mode • Node Isolation</p>
           </div>
 
-          {/* SYSTEM INSIGHTS */}
           <div className="bg-slate-900 dark:bg-[#1C1C1E] rounded-[40px] p-10 text-white shadow-2xl flex flex-col justify-between group overflow-hidden relative border border-white/5">
               <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-blue-600/10 rounded-full blur-[100px] group-hover:bg-blue-600/20 transition-all duration-1000" />
               
