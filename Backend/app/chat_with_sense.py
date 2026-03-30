@@ -3,21 +3,42 @@ import json
 import random
 import time
 import os
+import sys
+import io
+import csv
 from collections import deque
 from difflib import get_close_matches
 from serpapi import GoogleSearch 
 
-# ================== 1. FIXED IMPORTS (V12 APP STRUCTURE) ==================
-# Since this file is now inside the 'app' folder, we use 'app.' prefix
+# ================== 1. DYNAMIC PATH RESOLUTION (Render/Cloud Fix) ==================
+def get_resource_path(filename):
+    """
+    Dhundhta hai ki file 'app/' folder mein hai ya current directory mein.
+    Ye Render ke server par 'File Not Found' errors ko solve karta hai.
+    """
+    # 1. Current file (chat_with_sense.py) ke folder mein check karo
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, filename)
+    if os.path.exists(file_path):
+        return file_path
+    
+    # 2. Local structure (Backend/app/) mein check karo
+    local_path = os.path.join("app", filename)
+    if os.path.exists(local_path):
+        return local_path
+        
+    return filename
+
+# ================== 2. FIXED IMPORTS ==================
 try:
     from app.sense_tokenizer import SenseTokenizer
     from app.sense_model import SenseBrain
 except ImportError:
-    # Local fallback for direct script testing
+    # Local fallback agar directly run kar rahe ho
     from sense_tokenizer import SenseTokenizer
     from sense_model import SenseBrain
 
-# ================== 1. CONFIG ==================
+# ================== 3. CONFIG & API KEYS ==================
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 tokenizer = SenseTokenizer()
 search_mode = False
@@ -25,41 +46,40 @@ chat_history = deque(maxlen=20)
 user_name = None
 conversation_count = 0
 
-# 💎 SERP API KEY
-SERP_API_KEY = "1078c9dc0aec4056ad7c2cd0d5bc5647a0d913a9d633cfb9d9a35070fede11c7"
+# 💎 SERP API KEY (Environment variable se uthayega, backup key added)
+SERP_API_KEY = os.getenv("SERP_API_KEY", "1078c9dc0aec4056ad7c2cd0d5bc5647a0d913a9d633cfb9d9a35070fede11c7")
 
-# ================== 2. LOAD DATA (UPDATED FOR APP FOLDER) ==================
-def get_resource_path(filename):
-    """Helper to find files in 'app/' folder or current directory."""
-    app_path = os.path.join("app", filename)
-    if os.path.exists(app_path):
-        return app_path
-    return filename
-
+# ================== 4. LOAD DATA (Updated Logic) ==================
 try:
     dataset_file = get_resource_path("sense_assistant_data.json")
-    with open(dataset_file, "r") as f:
-        data = json.load(f)
-    tokenizer.build_vocab(data)
-    print(f"✅ Vocab Refreshed: {tokenizer.vocab_size} unique words in memory.")
+    if os.path.exists(dataset_file):
+        with open(dataset_file, "r") as f:
+            data = json.load(f)
+        tokenizer.build_vocab(data)
+        print(f"✅ Vocab Refreshed: {tokenizer.vocab_size} unique words.")
+    else:
+        print(f"⚠️ Warning: {dataset_file} not found. Using empty dataset.")
+        data = []
 except Exception as e:
     print(f"❌ Dataset Error: {e}")
-    exit()
+    data = []
 
-# ================== 3. LOAD MODEL (UPDATED FOR APP FOLDER) ==================
-model = SenseBrain(tokenizer.vocab_size, 256, 1024).to(device)
+# ================== 5. LOAD MODEL (Robust Loading) ==================
 try:
+    model = SenseBrain(tokenizer.vocab_size, 256, 1024).to(device)
     model_file = get_resource_path("sense_assistant.pth")
-    model.load_state_dict(torch.load(model_file, map_location=device, weights_only=True))
-    model.eval()
-    print("✅ Model Loaded Successfully")
+    if os.path.exists(model_file):
+        # Weights_only=True security ke liye aur CPU mapping Render free tier ke liye
+        model.load_state_dict(torch.load(model_file, map_location=device, weights_only=True))
+        model.eval()
+        print("✅ SenseBrain Neural Model Loaded Successfully")
+    else:
+        print(f"⚠️ Warning: {model_file} not found. AI will work on Greeting/Knowledge layers.")
 except Exception as e:
-    print(f"⚠️ Model Warning: {e}")
-print("🧠 Sense Assistant Architecture Defined.")
+    print(f"⚠️ Model Initialization Warning: {e}")
 
-# ================== 4. SEARCH ENGINE ==================
+# ================== 6. SEARCH ENGINE ==================
 def search_google_results(query):
-    """Fetches top 3 results from Google via SerpAPI and formats for chat."""
     try:
         params = {
             "q": query,
@@ -69,23 +89,20 @@ def search_google_results(query):
         }
         search = GoogleSearch(params)
         results = search.get_dict()
-
         output = ["🌐 **Search Results:**\n"]
         organic = results.get("organic_results", [])
-        
         if not organic:
             return "No live results found. Check your API quota or query. 🔍"
-
         for r in organic[:3]:
             title = r.get("title", "No Title")
             snippet = r.get("snippet", "No description available.")
             link = r.get("link", "#")
             output.append(f"🔗 **{title}**\n{snippet}\n")
-
         return "\n".join(output)
-
     except Exception as e:
         return f"❌ Search error: {str(e)}"
+
+
 
 # ================== 5. ALL GREETINGS (FULL 682+ LINE DATABASE) ==================
 GREETINGS = {
