@@ -16,26 +16,20 @@ from typing import Optional, Dict, Any, List
 from fpdf import FPDF
 
 # --- AI INTEGRATION (Updated for Cloud Paths) ---
-# Ensuring the local 'app' directory is in sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 try:
-    # Attempting import for Render environment
     from chat_with_sense import generate_response
     print("🧠 Neural Link Established: Sense Brain V11 Online.")
 except ImportError:
     try:
-        # Fallback to package-style import if running from root
         from app.chat_with_sense import generate_response
         print("🧠 Neural Link Established: Sense Brain V11 (Package) Online.")
     except Exception as e:
         print(f"⚠️ AI Module Load Error: {e}")
         def generate_response(text): return "AI Module missing or path configuration error."
-except Exception as e:
-    print(f"⚠️ AI Module Load Error: {e}")
-    def generate_response(text): return "AI Module missing or path configuration error."
 
 # --- AUTH & DB IMPORTS ---
 from app.auth.auth_routes import router as AuthRouter
@@ -52,16 +46,19 @@ app_ready = threading.Event()
 # ✅ HARDWARE & SIMULATION NODE REGISTRY
 active_hardware_nodes = {}
 
-# --- CORS SETTINGS (Updated for Vercel/Render Communication) ---
+# --- ✅ UPDATED CORS SETTINGS (Production Ready) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, replace "*" with your Vercel URL
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"] # 👈 Vercel connectivity ke liye zaroori hai
 )
 
 blockchain = Blockchain()
+
+# ✅ Auth Router with Prefix
 app.include_router(AuthRouter, prefix="/auth")
 
 # --- DATA MODELS ---
@@ -172,14 +169,12 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-# --- IOT SIMULATOR (Updated to be more stable on Render) ---
+# --- IOT SIMULATOR ---
 def run_iot_simulator():
     app_ready.wait()
     while True:
         try:
             if not active_hardware_nodes:
-                # Direct logic call or local trigger
-                # Render free tier might sleep, so we use a slightly longer interval
                 time.sleep(30) 
         except: pass
         time.sleep(10)
@@ -214,7 +209,6 @@ async def update_config(config: ConfigUpdate):
     try:
         with blockchain_lock:
             blockchain.difficulty = config.difficulty
-            print(f"⚙️ [API] Consensus Updated: New Target = {config.difficulty}")
             await notify_clients()
             return {"status": "success", "difficulty": blockchain.difficulty}
     except Exception as e:
@@ -232,13 +226,9 @@ async def node_handshake(data: HandshakeData):
 @app.post("/trigger_simulated_node/{node_id}")
 async def trigger_simulated_node(node_id: str):
     def simulate_hardware():
-        # Note: Local loopback requests (127.0.0.1) might behave differently on Render
-        # Ideally, use internal logic calls instead of requests.post
-        for i in range(10): # Reduced count for cloud stability
+        for i in range(10): 
             time.sleep(random.uniform(5.0, 10.0)) 
-            try:
-                # Internal logic would be better here for production
-                pass
+            try: pass
             except: pass
     threading.Thread(target=simulate_hardware, daemon=True).start()
     return {"status": "Simulation Active", "node": node_id}
