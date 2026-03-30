@@ -1,76 +1,88 @@
 import axios from "axios";
 
-// ✅ Sabse pehle URL detect karo aur Console mein print karo
-// Agar VITE_API_URL nahi mil raha toh direct Render URL use hoga
+// ✅ URL Detection with Console Feedback
 const getBaseURL = () => {
   const envURL = import.meta.env.VITE_API_URL;
   const fallbackURL = "https://sensechain.onrender.com";
   const finalURL = (envURL || fallbackURL).replace(/\/$/, "");
   
-  console.log(`🚀 SenseChain Uplink initialized at: ${finalURL}`);
+  // Isse aapko Vercel logs mein pata chal jayega ki link sahi hai ya nahi
+  if (import.meta.env.DEV) {
+    console.log(`🚀 SenseChain Dev Uplink: ${finalURL}`);
+  }
   return finalURL;
 };
 
 const API_BASE_URL = getBaseURL();
-
-// Internal flags to prevent redirection loops
 let isRedirecting = false;
 
 const API = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000, // 👈 Increase to 60s (Render cold starts can be slow)
+  timeout: 60000, // 👈 60s: Render needs this to spin up from sleep
   headers: {
     "Content-Type": "application/json",
   }
 });
 
-// ✅ REQUEST INTERCEPTOR: Token Attachment
+// ✅ REQUEST INTERCEPTOR: Injecting Security Tokens
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("sense_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    // Debug: Har request ka full URL dekho console mein
-    console.log(`🛰️ Outgoing Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    
+    // Debug log for tracking cloud traffic
+    if (import.meta.env.DEV) {
+      console.log(`🛰️ Sending: ${config.method?.toUpperCase()} -> ${config.url}`);
+    }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// ✅ RESPONSE INTERCEPTOR: Global Error Handling
+// ✅ RESPONSE INTERCEPTOR: Handling Cloud-specific failures
 API.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // 1. Handle Network/Offline Errors (CORS or Server Down)
+  async (error) => {
+    const originalRequest = error.config;
+
+    // 1. Handle Render "Cold Start" (Retry once if network fails)
+    if (!error.response && !originalRequest._retry) {
+      originalRequest._retry = true;
+      console.warn("😴 Backend is sleeping. Attempting to wake up Sense Brain...");
+      // Wait 3 seconds before retrying
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      return API(originalRequest);
+    }
+
+    // 2. Handle Network/CORS/Offline
     if (!error.response) {
-      console.error("❌ Node Failure: Backend unreachable at", API_BASE_URL);
-      console.error("Possible Causes: 1. Render instance sleeping 2. CORS blockage 3. Mixed Content (HTTP on HTTPS)");
       return Promise.reject({
-        message: "Node Connection Failed. Check Render Service.",
+        message: "Sense Brain Link Failed. The neural node (Render) might be offline.",
         status: "OFFLINE",
       });
     }
 
-    const { status, data } = error.response;
+    const { status } = error.response;
 
-    // 2. Handle Auth Failures (401/403)
+    // 3. Handle Session Expiry (Unauthorized)
     if ((status === 401 || status === 403) && !isRedirecting) {
       isRedirecting = true;
-      console.warn("⚠️ Session Expired: Redirecting to Login...");
+      console.error("🔒 Session Revoked. Re-routing to Terminal.");
       
       localStorage.clear();
-
+      
+      // Delay redirect slightly so user can see any error toast
       setTimeout(() => {
         window.location.href = "/login";
         isRedirecting = false;
-      }, 1000);
+      }, 1500);
       
-      return Promise.reject({ message: "Session Expired", status });
+      return Promise.reject({ message: "Access Denied", status });
     }
 
-    // 3. Handle Other Errors
-    return Promise.reject(data || { message: "Internal Server Error" });
+    return Promise.reject(error.response.data || { message: "Neural Link Error" });
   }
 );
 
