@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-// ✅ Activity and ShieldCheck added to imports
-import { Mail, Lock, LockIcon, Zap, ArrowRight, Loader2, ShieldCheck, Activity } from 'lucide-react';
+// ✅ Cleaned up unused imports (Zap, LockIcon removed)
+import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, Activity } from 'lucide-react';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -19,7 +19,8 @@ const Login = () => {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch('http://127.0.0.1:8000/auth/login', {
+            // ✅ FIXED: Using Render URL instead of 127.0.0.1
+            const response = await fetch('https://sensechain.onrender.com/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
@@ -32,7 +33,8 @@ const Login = () => {
                 setError(data.detail || 'Invalid email or password');
             }
         } catch (err) {
-            setError('Server not available');
+            console.error("Login Error:", err);
+            setError('Server not available. Please check your connection.');
         } finally {
             setLoading(false);
         }
@@ -53,12 +55,10 @@ const Login = () => {
                     
                     {/* Branding - Logo with Heartbeat Motion */}
                     <div className="flex flex-col items-center mb-10">
-                        <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-3xl shadow-x3 shadow-indigo-500/20 mb-4">
+                        <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-3xl shadow-xl shadow-indigo-500/20 mb-4">
                             <div className="relative flex items-center justify-center">
-                                {/* Static Shield */}
                                 <ShieldCheck size={28} className="text-white/30" /> 
                                 
-                                {/* ✅ Pulsing Activity Icon (The Motion) */}
                                 <motion.div 
                                     animate={{ 
                                         opacity: [0.4, 1, 0.4], 
@@ -76,7 +76,7 @@ const Login = () => {
                             </div>
                         </div>
                         <h1 className="text-5xl font-semibold tracking-tight dark:text-white"> SenseChain</h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-1 align-center">Please Login to Access</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-1 text-center">Please Login to Access</p>
                     </div>
 
                     <form onSubmit={handleLogin} className="space-y-5">
@@ -124,14 +124,14 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-4 bg-gradient-to-r from-blue-600 to-black hover:from-black hover:to-red-600 text-white rounded-2xl font-black  tracking-widest text-xs shadow-xl shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                            className="w-full py-4 bg-gradient-to-r from-blue-600 to-black hover:from-black hover:to-red-600 text-white rounded-2xl font-black tracking-widest text-xs shadow-xl shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                         >
                             {loading ? <Loader2 className="animate-spin" size={18} /> : <>Login <ArrowRight size={16} /></>}
                         </button>
                     </form>
 
                     <p className="mt-8 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        New to network? <Link to="/signup" className="text-blue-500 hover:text-blue-600 ml-1 ">Sign Up</Link>
+                        New to network? <Link to="/signup" className="text-blue-500 hover:text-blue-600 ml-1">Sign Up</Link>
                     </p>
                 </div>
             </motion.div>
