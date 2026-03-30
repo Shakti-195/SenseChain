@@ -9,30 +9,41 @@ export const AuthProvider = ({ children }) => {
 
   // ✅ INITIALIZE AUTH: Rehydrates state from storage
   useEffect(() => {
-    const storedToken = localStorage.getItem("sense_token");
-    const email = localStorage.getItem("user_email");
-    const name = localStorage.getItem("user_name");
+    const initializeAuth = () => {
+      const storedToken = localStorage.getItem("sense_token");
+      const email = localStorage.getItem("user_email");
+      const name = localStorage.getItem("user_name");
 
-    if (storedToken) {
-      setToken(storedToken);
-      setUser({ email, name });
-    }
+      if (storedToken) {
+        setToken(storedToken);
+        setUser({ email, name });
+      }
+      setLoading(false);
+    };
 
-    // Small timeout to prevent layout shift during re-auth
-    const timer = setTimeout(() => setLoading(false), 200);
-    return () => clearTimeout(timer);
+    initializeAuth();
+
+    // ✅ Tab Sync Logic: Logout in one tab reflects in others
+    const handleStorageChange = (e) => {
+      if (e.key === "sense_token" && !e.newValue) {
+        logout();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   // ✅ LOGIN: Persistence + State Update
   const login = useCallback((newToken, email) => {
     if (!newToken) return;
 
-    const derivedName = email
-      ? email.split("@")[0].toUpperCase()
+    // Derived name logic with safety
+    const derivedName = email 
+      ? email.split("@")[0].toUpperCase() 
       : "AGENT_SENSE";
 
     localStorage.setItem("sense_token", newToken);
-    localStorage.setItem("user_email", email);
+    localStorage.setItem("user_email", email || "");
     localStorage.setItem("user_name", derivedName);
 
     setToken(newToken);
@@ -42,14 +53,12 @@ export const AuthProvider = ({ children }) => {
   // ✅ LOGOUT: Global Cleanup
   const logout = useCallback(() => {
     // Clear all forensic data
-    localStorage.removeItem("sense_token");
-    localStorage.removeItem("user_email");
-    localStorage.removeItem("user_name");
+    localStorage.clear(); // 👈 Professional way to wipe everything
     
     setToken(null);
     setUser({ email: null, name: null });
 
-    // Force redirect to login to clear all memory states
+    // window.location.replace uses a hard reload to clear React state memory
     window.location.replace("/login");
   }, []);
 
@@ -64,7 +73,7 @@ export const AuthProvider = ({ children }) => {
         loading,
       }}
     >
-      {children}
+      {!loading && children} 
     </AuthContext.Provider>
   );
 };

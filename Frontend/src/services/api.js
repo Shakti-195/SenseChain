@@ -1,16 +1,15 @@
 import axios from "axios";
 
-// ✅ UPDATED FOR RENDER DEPLOYMENT
-// Render ka URL use kar rahe hain, backup ke liye localhost rakha hai
-// ✅ Professional Way: Pehle environment variable dhoondo, nahi toh fallback use karo
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://sensechain.onrender.com";
+// ✅ Professional Way: Using Environment Variable with a safe fallback
+// Trim is used to avoid accidental spaces in .env file
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "https://sensechain.onrender.com").replace(/\/$/, "");
 
 // Internal flags to prevent redirection loops
 let isRedirecting = false;
 
 const API = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 45000, // 👈 45s: Cloud environment mein re-mining (Healing) mein thoda extra time lag sakta hai
+  timeout: 45000, // 👈 45s for cold starts on Render
   headers: {
     "Content-Type": "application/json",
   }
@@ -32,9 +31,9 @@ API.interceptors.request.use(
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 1. Handle Network/Offline Errors
+    // 1. Handle Network/Offline Errors (CORS or Server Down)
     if (!error.response) {
-      console.error("Critical Node Failure: Render Backend is unreachable.");
+      console.error("Critical Node Failure: Backend unreachable at", API_BASE_URL);
       return Promise.reject({
         message: "Node Connection Failed. Check if Render service is Live.",
         status: "OFFLINE",
@@ -46,22 +45,21 @@ API.interceptors.response.use(
     // 2. Handle Auth Failures (401/403)
     if ((status === 401 || status === 403) && !isRedirecting) {
       isRedirecting = true;
-      console.warn("Session Expired: Redirecting to Terminal Login...");
+      console.warn("Session Expired: Redirecting to Terminal...");
       
-      localStorage.removeItem("sense_token");
-      localStorage.removeItem("user_email");
-      localStorage.removeItem("user_name");
+      // Clear all auth data
+      localStorage.clear(); // 👈 Pro Tip: clear() is safer than individual removeItems
 
       setTimeout(() => {
-        // Use window.location.href for a cleaner redirect in production
         window.location.href = "/login";
         isRedirecting = false;
       }, 800);
-      return Promise.reject({ message: "Session Expired" });
+      
+      return Promise.reject({ message: "Session Expired", status });
     }
 
-    // 3. Handle Special Blockchain Errors
-    return Promise.reject(data || error);
+    // 3. Handle Other Errors
+    return Promise.reject(data || { message: "Internal Server Error" });
   }
 );
 
