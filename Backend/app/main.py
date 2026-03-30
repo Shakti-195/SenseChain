@@ -53,10 +53,20 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"] # 👈 Vercel connectivity ke liye zaroori hai
+    expose_headers=["*"] 
 )
 
 blockchain = Blockchain()
+
+# ✅ Health Check Route (Fixes "Server Not Available" on some Frontends)
+@app.get("/")
+async def health_check():
+    return {
+        "status": "Online",
+        "message": "SenseChain Backend is Live",
+        "node_time": time.time(),
+        "version": "12.0.1"
+    }
 
 # ✅ Auth Router with Prefix
 app.include_router(AuthRouter, prefix="/auth")
