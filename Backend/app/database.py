@@ -1,31 +1,33 @@
+import os  # Environment variables read karne ke liye zaroori hai
 from motor.motor_asyncio import AsyncIOMotorClient
 
 class Database:
     client: AsyncIOMotorClient = None
     db = None
-    collection = None        # Ye Blockchain Ledger ke liye hai
-    collection_users = None  # YE NAYA HAI: Users (Signup/Login) ke liye
+    collection = None         # Blockchain Ledger ke liye
+    collection_users = None   # Users (Signup/Login) ke liye
 
 # Is instance ko hum main.py aur auth_routes.py mein use karenge
 db_instance = Database()
 
-# Localhost address
-MONGODB_URL = "mongodb://localhost:27017"
+# --- MODIFIED FOR DEPLOYMENT ---
+# Render par ye 'MONGO_URI' variable check karega, agar nahi milega toh localhost use karega
+MONGODB_URL = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+DB_NAME = os.getenv("DB_NAME", "sensechain_db")
 
 async def connect_to_mongo():
     try:
+        # Atlas ya Local connection establish karna
         db_instance.client = AsyncIOMotorClient(MONGODB_URL)
         
-        # Database ka naam 'sensechain_db'
-        db_instance.db = db_instance.client.sensechain_db
+        # Database select karna (Ab ye dynamic hai)
+        db_instance.db = db_instance.client[DB_NAME]
         
-        # 1. Blockchain Ledger Collection
+        # Collections initialize karna
         db_instance.collection = db_instance.db.ledger
-        
-        # 2. User Authentication Collection (Naya setup)
         db_instance.collection_users = db_instance.db.users
         
-        print("✅ MongoDB Connected Successfully!")
+        print(f"✅ MongoDB Connected Successfully to: {DB_NAME}")
         print("📁 Collections Initialized: [ledger], [users]")
         
     except Exception as e:
