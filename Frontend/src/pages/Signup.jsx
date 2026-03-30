@@ -90,24 +90,26 @@ const Signup = () => {
                         ) : (
                             <motion.div key="otp" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
                                 <div className="text-center mb-10">
-                                    <div className="p-4 bg-indigo-600 rounded-2xl inline-flex mb-6 shadow-xl shadow-indigo-500/20">
+                                    <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-3xl inline-flex mb-6 shadow-xl shadow-indigo-500/20">
                                         <ShieldCheck size={28} className="text-white" />
                                     </div>
-                                    <h2 className="text-3xl font-black italic tracking-tighter uppercase dark:text-white">Verify Account</h2>
+                                    <h2 className="text-4xl font-semibold tracking-tighter dark:text-white ">Verify Account</h2>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2">Code sent to: {formData.email}</p>
                                 </div>
 
                                 <div className="space-y-6 text-center">
-                                    <input
-                                        type="text"
-                                        maxLength="4"
-                                        placeholder="0000"
-                                        value={userOtp}
-                                        onChange={(e) => setUserOtp(e.target.value)}
-                                        className="w-full py-6 bg-slate-50 dark:bg-black/40 border border-indigo-200 dark:border-white/10 rounded-3xl outline-none text-4xl font-black tracking-[0.8em] pl-[0.8em] text-indigo-600 dark:text-white focus:border-indigo-500 transition-all"
+                                    <input 
+                                        type="text" 
+                                        maxLength="4" 
+                                        placeholder="0000" 
+                                        value={userOtp} 
+                                        onChange={(e) => setUserOtp(e.target.value)} 
+                                        // ✅ classes updated: 'text-center' added, 'pl' removed for perfect centering
+                                        className="w-full py-6 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-3xl outline-none text-4xl font-black tracking-[0.8em] text-center text-blue-600 dark:text-white transition-all focus:border-blue-500" 
+                                        required 
                                     />
-                                    {error && <p className="text-xs font-black text-rose-500 uppercase tracking-widest italic">{error}</p>}
-                                    <button onClick={handleVerifyAndLogin} disabled={loading} className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black uppercase italic tracking-widest text-xs shadow-2xl transition-all">
+                                    {error && <p className="text-xs font-black text-rose-500  tracking-widest ">{error}</p>}
+                                    <button onClick={handleVerifyAndLogin} disabled={loading} className="w-full py-5 bg-gradient-to-r from-blue-600 to-black  hover:from-black hover:to-red-600 text-white rounded-2xl font-black  tracking-widest text-xs shadow-2xl transition-all">
                                         {loading ? <Loader2 className="animate-spin mx-auto" size={18} /> : 'Complete Registration'}
                                     </button>
                                 </div>
