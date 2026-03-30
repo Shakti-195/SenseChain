@@ -29,47 +29,54 @@ const OtpVerification = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const handleVerify = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        try {
-            const res = await fetch('http://127.0.0.1:8000/auth/verify-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, otp })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                setIsSuccess(true);
-                setTimeout(() => navigate('/'), 1500);
-            } else {
-                setError(data.detail || "Invalid OTP");
-                setOtp('');
-            }
-        } catch {
-            setError("Server not available");
-        } finally {
-            setLoading(false);
-        }
-    };
+   // ... existing imports ...
 
-    const handleResend = async () => {
-        setTimer(59);
-        try {
-            const res = await fetch('http://127.0.0.1:8000/auth/send-otp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
-            });
-            const data = await res.json();
-            alert(`Your OTP is: ${data.otp}`);
-        } catch {
-            setError("Failed to resend OTP");
+const handleVerify = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+        // ✅ UPDATED FOR CLOUD (Render URL)
+        const res = await fetch('https://sensechain.onrender.com/auth/verify-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            setIsSuccess(true);
+            setTimeout(() => navigate('/'), 1500);
+        } else {
+            setError(data.detail || "Invalid OTP");
+            setOtp('');
         }
-    };
+    } catch (err) {
+        // Console log zaroor check karna F12 mein agar error aaye
+        console.error("Verification Error:", err);
+        setError("Server not available");
+    } finally {
+        setLoading(false);
+    }
+};
 
-    return (
+const handleResend = async () => {
+    setTimer(59);
+    try {
+        // ✅ UPDATED FOR CLOUD (Render URL)
+        const res = await fetch('https://sensechain.onrender.com/auth/send-otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        alert(`Your OTP is: ${data.otp}`);
+    } catch (err) {
+        console.error("Resend Error:", err);
+        setError("Failed to resend OTP");
+    }
+};
+
+// ... remaining component code ...
         <div className="min-h-screen flex items-center justify-center p-6 bg-[#F5F5F7] dark:bg-[#020617] relative overflow-hidden transition-colors duration-500">
             {/* 🌌 Cinematic Background Blobs - Synced with Theme */}
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/10 blur-[120px] rounded-full" />
