@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Bot, User, X, ChevronDown, MessageSquare, Mic, Search, Settings, Moon, Sun, Headset, History, PlusCircle, Maximize2, Radio, Zap, AudioLines, Trash2, Volume2, VolumeX, MicOff } from 'lucide-react';
 
-const API_BASE = "http://127.0.0.1:8000";
-
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 // ─── Voice State Machine ───────────────────────────────────────
 // IDLE → LISTENING → PROCESSING → SPEAKING → LISTENING → ...
 // Each state has exactly one exit path. No parallel states possible.
