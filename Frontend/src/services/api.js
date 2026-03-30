@@ -1,13 +1,15 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+// ✅ UPDATED FOR RENDER DEPLOYMENT
+// Render ka URL use kar rahe hain, backup ke liye localhost rakha hai
+const API_BASE_URL = "https://sensechain.onrender.com";
 
 // Internal flags to prevent redirection loops
 let isRedirecting = false;
 
 const API = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // 👈 30s: Re-mining (Healing) can take time depending on difficulty
+  timeout: 45000, // 👈 45s: Cloud environment mein re-mining (Healing) mein thoda extra time lag sakta hai
   headers: {
     "Content-Type": "application/json",
   }
@@ -31,9 +33,9 @@ API.interceptors.response.use(
   (error) => {
     // 1. Handle Network/Offline Errors
     if (!error.response) {
-      console.error("Critical Node Failure: Backend is unreachable.");
+      console.error("Critical Node Failure: Render Backend is unreachable.");
       return Promise.reject({
-        message: "Node Connection Failed. Check if FastAPI is running.",
+        message: "Node Connection Failed. Check if Render service is Live.",
         status: "OFFLINE",
       });
     }
@@ -50,14 +52,14 @@ API.interceptors.response.use(
       localStorage.removeItem("user_name");
 
       setTimeout(() => {
-        window.location.replace("/login");
+        // Use window.location.href for a cleaner redirect in production
+        window.location.href = "/login";
         isRedirecting = false;
       }, 800);
       return Promise.reject({ message: "Session Expired" });
     }
 
-    // 3. Handle Special Blockchain Errors (e.g., 400 Tamper Detected)
-    // Inhe reject karna zaroori hai taaki Security.jsx ka catch block trigger ho
+    // 3. Handle Special Blockchain Errors
     return Promise.reject(data || error);
   }
 );
