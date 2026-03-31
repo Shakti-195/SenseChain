@@ -1,5 +1,5 @@
 # ==========================================
-#   SENSECHAIN V11 - OPTIMIZED REPOSITORY
+#   SENSECHAIN V11 - PRODUCTION READY
 # ==========================================
 
 # --- 🐍 Python & Backend ---
@@ -9,11 +9,13 @@
 **/env/
 **/ENV/
 
-# Environment Secrets
+# Environment Secrets (Crucial: Vercel/Render will use their own Dashboard vars)
 .env
-Backend/.env
-Frontend/.env
-Frontend/.env.local
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
 
 # Python Cache & Temp Files
 **/__pycache__/
@@ -24,35 +26,36 @@ Frontend/.env.local
 
 # --- 🧠 AI & Machine Learning ---
 # Large Model Weights (Keep local or use Git LFS)
-# Ab models app/ folder ke andar ho sakte hain
 **/*.pth
 **/*.bin
 **/*.weights
-**/sense_assistant.pth
+# Exception: Keeping your specific model and data
+!Backend/app/sense_assistant.pth
+!Backend/app/sense_assistant_data.json
 
-# Datasets & Training Scripts (Optional: Agar aap dataset hide rakhna chahte hain)
-**/sense_assistant_data.json
+# AI Pickles & Logs
 **/sense_vectorstore.pkl
 Backend/dataset_generator.py
 Backend/train_assistant.py
 
 # --- ⛓️ Blockchain Data ---
-# Local Ledger Storage (Ye har mine par badalta hai, isse push mat karo)
+# Local Ledger Storage (Let the DB handle this in production)
 **/blockchain_data.json
 
 # --- ⚛️ Frontend (React/Vite) ---
-# Node Modules (Very heavy - MUST IGNORE)
+# Node Modules (Heavy - MUST IGNORE)
 **/node_modules/
 
-# Build & Production Files
+# Build & Production Files (Vercel will build its own 'dist')
 Frontend/dist/
 Frontend/build/
+dist/
+build/
 **/npm-debug.log*
 **/yarn-debug.log*
 **/yarn-error.log*
 
 # --- 📄 Reports & Logs ---
-# Forensic reports (Local generated files)
 **/sensechain_report.pdf
 **/audit.csv
 **/*.log
@@ -62,12 +65,14 @@ Frontend/build/
 .vscode/
 .idea/
 .DS_Store
+*.swp
 Thumbs.db
 desktop.ini
 
 # ==========================================
 #   EXCEPTIONS (Files we WANT to keep)
 # ==========================================
-# Hum start script aur requirements push karna chahte hain
 !start_sensechain.bat
 !requirements.txt
+!Frontend/package.json
+!Frontend/vite.config.js

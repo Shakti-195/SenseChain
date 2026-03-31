@@ -7,6 +7,22 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState({ email: null, name: null });
   const [loading, setLoading] = useState(true);
 
+  // ✅ LOGOUT: Global Cleanup (Moved up for use in useEffect)
+  const logout = useCallback(() => {
+    // Clear all forensic data
+    localStorage.removeItem("sense_token");
+    localStorage.removeItem("user_email");
+    localStorage.removeItem("user_name");
+    
+    setToken(null);
+    setUser({ email: null, name: null });
+
+    // window.location.replace is good for clearing sensitive state memory
+    if (window.location.pathname !== "/login") {
+      window.location.replace("/login");
+    }
+  }, []);
+
   // ✅ INITIALIZE AUTH: Rehydrates state from storage
   useEffect(() => {
     const initializeAuth = () => {
@@ -31,7 +47,7 @@ export const AuthProvider = ({ children }) => {
     };
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [logout]);
 
   // ✅ LOGIN: Persistence + State Update
   const login = useCallback((newToken, email) => {
@@ -48,18 +64,6 @@ export const AuthProvider = ({ children }) => {
 
     setToken(newToken);
     setUser({ email, name: derivedName });
-  }, []);
-
-  // ✅ LOGOUT: Global Cleanup
-  const logout = useCallback(() => {
-    // Clear all forensic data
-    localStorage.clear(); // 👈 Professional way to wipe everything
-    
-    setToken(null);
-    setUser({ email: null, name: null });
-
-    // window.location.replace uses a hard reload to clear React state memory
-    window.location.replace("/login");
   }, []);
 
   return (
