@@ -94,7 +94,7 @@ const ForgotPassword = () => {
                         {step === 1 && (
                             <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                 <div className="flex flex-col items-center mb-10 mt-4">
-                                    <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-2xl shadow-xl shadow-indigo-500/20 mb-4 text-white font-bold">
+                                    <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-2xl shadow-xl shadow-indigo-500/20 mb-4 text-slate-900 dark:text-white font-bold">
                                         <Mail size={28} />
                                     </div>
                                     <h1 className="text-4xl font-semibold tracking-tight dark:text-white">Reset Password</h1>
@@ -115,7 +115,7 @@ const ForgotPassword = () => {
                                             />
                                         </div>
                                     </div>
-                                    <button type="submit" disabled={loading} className="w-full py-4 bg-gradient-to-r from-blue-600 to-black hover:from-black hover:to-red-600 text-white rounded-2xl font-black tracking-widest text-xs shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                    <button type="submit" disabled={loading} className="w-full py-4 bg-gradient-to-r from-blue-600 to-black hover:from-black hover:to-red-600 text-slate-900 dark:text-white rounded-2xl font-black tracking-widest text-xs shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                                         {loading ? <Loader2 className="animate-spin" size={18}/> : <>Request OTP <ArrowRight size={16} /></>}
                                     </button>
                                 </form>
@@ -125,7 +125,7 @@ const ForgotPassword = () => {
                         {step === 2 && (
                             <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                 <div className="flex flex-col items-center mb-10 mt-4">
-                                    <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-3xl shadow-xl shadow-indigo-500/20 mb-4 text-white">
+                                    <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-3xl shadow-xl shadow-indigo-500/20 mb-4 text-slate-900 dark:text-white">
                                         <ShieldCheck size={28} />
                                     </div>
                                     <h1 className="text-4xl font-semibold tracking-tighter dark:text-white ">Verify OTP</h1>
@@ -142,7 +142,7 @@ const ForgotPassword = () => {
                                         required 
                                     />
                                     {error && <p className="text-xs font-black text-rose-500 uppercase tracking-widest italic">{error}</p>}
-                                    <button type="submit" className="w-full py-4 bg-gradient-to-r from-blue-600 to-black hover:from-black hover:to-red-600 text-white rounded-2xl font-black tracking-widest text-xs active:scale-95 transition-all">Verify</button>
+                                    <button type="submit" className="w-full py-4 bg-gradient-to-r from-blue-600 to-black hover:from-black hover:to-red-600 text-slate-900 dark:text-white rounded-2xl font-black tracking-widest text-xs active:scale-95 transition-all">Verify</button>
                                 </form>
                             </motion.div>
                         )}
@@ -150,7 +150,7 @@ const ForgotPassword = () => {
                         {step === 3 && (
                             <motion.div key="step3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                 <div className="flex flex-col items-center mb-10 mt-4">
-                                    <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-2xl shadow-xl shadow-emerald-500/20 mb-4 text-white">
+                                    <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-2xl shadow-xl shadow-emerald-500/20 mb-4 text-slate-900 dark:text-white">
                                         <KeyRound size={28} />
                                     </div>
                                     <h1 className="text-4xl font-semibold tracking-tighter dark:text-white text-center leading-none">New Password</h1>
@@ -188,7 +188,7 @@ const ForgotPassword = () => {
                                     </div>
 
                                     {error && <p className="text-xs font-black text-rose-500 uppercase tracking-widest text-center italic">{error}</p>}
-                                    <button type="submit" disabled={loading} className="w-full py-4 bg-gradient-to-r from-blue-600 to-black hover:from-black hover:to-red-600 text-white rounded-2xl font-black tracking-widest text-xs shadow-xl active:scale-95 transition-all">
+                                    <button type="submit" disabled={loading} className="w-full py-4 bg-gradient-to-r from-blue-600 to-black hover:from-black hover:to-red-600 text-slate-900 dark:text-white rounded-2xl font-black tracking-widest text-xs shadow-xl active:scale-95 transition-all">
                                         {loading ? <Loader2 className="animate-spin mx-auto"/> : 'Update Password'}
                                     </button>
                                 </form>

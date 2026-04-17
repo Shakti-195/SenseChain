@@ -1,96 +1,74 @@
 import axios from "axios";
 
-// ✅ Smart URL Detection Logic
 const getBaseURL = () => {
-  const envURL = import.meta.env.VITE_API_URL;
+  const envURL = import.meta.env.VITE_API_BASE_URL;
   const renderURL = "https://sensechain.onrender.com";
   const localURL = "http://127.0.0.1:8000";
 
-  // Check if we are running on Vercel/Production
   const isProduction = window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
 
-  // Decide the best URL
-  // Priority: 1. Env Var, 2. Auto-Production Detection, 3. Localhost Fallback
   let finalURL = envURL || (isProduction ? renderURL : localURL);
-  
   finalURL = finalURL.replace(/\/$/, "");
 
-  // 🚨 UI-Friendly Debugging
-  if (isProduction) {
-    console.log("%c🛰️ SENSE-CHAIN: CLOUD UPLINK ACTIVE -> " + finalURL, "color: #10b981; font-weight: bold;");
-  } else {
-    console.log("%c🛰️ SENSE-CHAIN: LOCALHOST DEVELOPMENT MODE", "color: orange; font-weight: bold;");
-  }
-  
+  console.log(
+    `%c🛰️ API UPLINK: ${finalURL}`,
+    `color: ${isProduction ? "#10b981" : "#f59e0b"}; font-weight: bold;`
+  );
+
   return finalURL;
 };
 
-const API_BASE_URL = getBaseURL();
-let isRedirecting = false;
-
 const API = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 60000, 
-  headers: {
-    "Content-Type": "application/json",
-  }
+  baseURL: getBaseURL(),
+  timeout: 20000, // 20s for slow Render responses
+  headers: { "Content-Type": "application/json" },
 });
 
-// ✅ REQUEST INTERCEPTOR (Kept Original)
-API.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("sense_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// ✅ ATTACH SENSE TOKEN
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem("sense_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => Promise.reject(error));
 
-// ✅ RESPONSE INTERCEPTOR: Smart Recovery
+let isRedirecting = false;
+
+// ✅ PRODUCTION RETRY & AUTH INTERCEPTOR
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    originalRequest._retryCount = originalRequest._retryCount || 0;
 
-    // 1. Handle Render Cold Start (Smart Retry)
-    // If request fails due to timeout or network, and it's not a retry yet
-    if ((error.code === 'ECONNABORTED' || !error.response) && !originalRequest._retry) {
-      originalRequest._retry = true;
-      console.warn("😴 Neural Node is sleeping. Initializing wake-up sequence...");
+    // 1. HANDLE COLD START (Retry logic)
+    if ((!error.response || error.code === "ECONNABORTED") && originalRequest._retryCount < 3) {
+      originalRequest._retryCount += 1;
+      const delay = 2000 * originalRequest._retryCount;
+      console.warn(`⚡ Backend waking up... Retry ${originalRequest._retryCount}/3 in ${delay}ms`);
       
-      // Wait 3s and try again (Render typically needs 15-30s)
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(res => setTimeout(res, delay));
       return API(originalRequest);
     }
 
-    // 2. Node Offline Error
-    if (!error.response) {
-      return Promise.reject({
-        message: "Neural Link Failed. Verify Render Node Status.",
-        status: "OFFLINE",
-      });
+    // 2. HANDLE AUTH EXPIRATION
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      if (!isRedirecting) {
+        isRedirecting = true;
+        console.error("🔒 Security Token Expired. Logging out...");
+        localStorage.removeItem("sense_token");
+        setTimeout(() => {
+          window.location.href = "/login";
+          isRedirecting = false;
+        }, 1500);
+      }
+      return Promise.reject({ message: "Unauthorized access" });
     }
 
-    const { status } = error.response;
-
-    // 3. Auth Guard (401/403)
-    if ((status === 401 || status === 403) && !isRedirecting) {
-      isRedirecting = true;
-      console.error("🔒 Auth Token Revoked. Resetting Terminal...");
-      
-      localStorage.clear();
-      
-      setTimeout(() => {
-        window.location.href = "/login";
-        isRedirecting = false;
-      }, 1000);
-      
-      return Promise.reject({ message: "Session Expired", status });
-    }
-
-    return Promise.reject(error.response.data || { message: "Neural Link Error" });
+    // 3. STRUCTURED ERROR RETURN
+    const errorData = error.response ? error.response.data : { message: "Network connection lost." };
+    return Promise.reject(errorData);
   }
 );
 

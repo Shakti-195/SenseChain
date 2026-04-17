@@ -19,7 +19,13 @@ class Blockchain:
 
     def create_genesis_block(self):
         """Initializes the SenseChain with the very first block."""
-        genesis_block = Block(0, "Genesis Block: Neural Link Established", "0")
+        genesis_data = {
+            "message": "Genesis Block: Neural Link Established",
+            "temperature": 0,
+            "humidity": 0,
+            "status": "initialized"
+        }
+        genesis_block = Block(0, genesis_data, "0")
         self.mine_block(genesis_block)
         self.chain.append(genesis_block)
         self.save_chain()

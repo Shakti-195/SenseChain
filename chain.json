@@ -1,0 +1,57 @@
+{
+  "chain": [
+    {
+      "id": "blk_0_1774954368.7869508",
+      "index": 0,
+      "timestamp": 1774954368.7869508,
+      "data": {
+        "temperature": 0,
+        "humidity": 0
+      },
+      "previous_hash": "0",
+      "hash": "00fdde62075461fe31f2d0ed2eac256e6fb5f1e399e99611f603f7eb5db07063",
+      "nonce": 957
+    },
+    {
+      "id": "blk_0_1774954385.2576008",
+      "index": 0,
+      "timestamp": 1774954385.2576008,
+      "data": {
+        "temperature": 0,
+        "humidity": 0
+      },
+      "previous_hash": "00fdde62075461fe31f2d0ed2eac256e6fb5f1e399e99611f603f7eb5db07063",
+      "hash": "0007573302e0b25e6873f9d6d854d2d08bb46aec10507f96eb8d6ae4ea2087ed",
+      "nonce": 2154
+    },
+    {
+      "id": "blk_0_1774954489.1296458",
+      "index": 0,
+      "timestamp": 1774954489.1296458,
+      "data": {
+        "temperature": 0,
+        "humidity": 0
+      },
+      "previous_hash": "0007573302e0b25e6873f9d6d854d2d08bb46aec10507f96eb8d6ae4ea2087ed",
+      "hash": "0005e901f1f4edd7acade14d34a734c178626ef46631cccdbd9d97449f85ad89",
+      "nonce": 14965
+    },
+    {
+      "id": "blk_0_1774954533.0010388",
+      "index": 0,
+      "timestamp": 1774954533.0010388,
+      "data": {
+        "temperature": 0,
+        "humidity": 0
+      },
+      "previous_hash": "0005e901f1f4edd7acade14d34a734c178626ef46631cccdbd9d97449f85ad89",
+      "hash": "000b7515c317df60367e44b46438a86ad4ff002805b661b8f8d1cd554a9050fd",
+      "nonce": 11610
+    }
+  ],
+  "integrity": true,
+  "length": 4,
+  "difficulty": 3,
+  "lastUpdated": 1775471226.956646,
+  "active_nodes": {}
+}

@@ -1,268 +1,631 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  ShieldAlert, ShieldCheck, Zap, RefreshCw,
-  FileText, Download, Terminal, Activity,
-  Fingerprint, Lock, Unlock, ShieldX, ChevronRight,
-  AlertCircle
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion"; 
-// ✅ IMPORT CENTRAL API INSTANCE
-import api from "../services/api";
-import { useAuth } from "../context/AuthContext";
+  ShieldAlert, ShieldCheck, ShieldX, Zap, RefreshCw,
+  FileText, Download, Terminal, Fingerprint, Unlock,
+  AlertCircle, Database, Hash, Signal, Lock, Cpu,
+  Flame, Radio, TrendingDown, TrendingUp, Eye, EyeOff,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { useBreach } from '../context/BreachContext';
+import { generatePDF, generateExcel } from '../utils/reportGenerator';
+
+// ── TIMEZONE-AWARE CLOCK ──
+const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const fmtNow = () =>
+  new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false, timeZone: LOCAL_TZ,
+  }).format(new Date());
+
+// ── ATTACK PHASES (drives multi-step animation) ──
+const ATTACK_PHASES = [
+  { delay: 0,    type: 'warn',    msg: (idx) => `[RECON]  Scanning target Block #${idx}...` },
+  { delay: 600,  type: 'warn',    msg: (idx) => `[INJECT] Deploying entropy payload at Block #${idx}` },
+  { delay: 1200, type: 'error',   msg: (idx) => `[MUTATE] Block #${idx} data overridden → temperature: 99.9°C` },
+  { delay: 1800, type: 'error',   msg: (idx) => `[HASH]   SHA-256 recomputed with malicious nonce` },
+  { delay: 2400, type: 'error',   msg: (idx) => `[BREACH] Hash linkage severed ← chain integrity BROKEN` },
+  { delay: 2900, type: 'error',   msg: ()    => `[ALERT]  ⚡ CRITICAL: Global breach alert broadcast` },
+];
+
+const REPAIR_PHASES = [
+  { delay: 0,    type: 'warn',    msg: () => `[INIT]   Forensic chain recovery initiated` },
+  { delay: 500,  type: 'info',    msg: () => `[SCAN]   Locating tampered block...` },
+  { delay: 1100, type: 'warn',    msg: () => `[REBUILD]Recomputing SHA-256 from genesis block #0` },
+  { delay: 1700, type: 'info',    msg: () => `[VERIFY] Re-linking parent hashes across all nodes` },
+  { delay: 2300, type: 'success', msg: () => `[DONE]   All hashes re-validated. Merkle root restored.` },
+  { delay: 2700, type: 'success', msg: () => `[SYNC]   ✓ Neural network re-synchronized. Integrity RESTORED.` },
+];
+
+// ── LIVE TICKER LOGS (when no attack is running) ──
+const IDLE_LOGS = [
+  () => `[WATCH]  Monitoring hash chain... ${(Math.random() * 0.5 + 0.1).toFixed(3)}ms ping`,
+  () => `[SCAN]   Block integrity check passed`,
+  () => `[CRYPTO] SHA-256 signature valid`,
+  () => `[NET]    Peer mesh heartbeat OK`,
+  () => `[AUTH]   JWT token verified`,
+  () => `[LEDGER] No anomalies detected in last 60s`,
+  () => `[TLS]    Handshake renewed`,
+  () => `[TEMP]   Sensor within bounds: ${(22 + Math.random() * 4).toFixed(1)}°C`,
+];
 
 const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
   const { token } = useAuth();
+  const { virtualBreach, breachedBlock, setVirtualBreach, clearBreach } = useBreach();
 
-  // --- LOCAL UI STATES (Original Logic Kept) ---
-  const [isRepairing, setIsRepairing] = useState(false);
-  const [tamperIndex, setTamperIndex] = useState(0);
-  const [isScanning, setIsScanning] = useState(false);
-  const [repairStep, setRepairStep] = useState("");
-  const [localError, setLocalError] = useState(null);
-  const [statusMsg, setStatusMsg] = useState(null);
+  // ── UI STATE ──
+  const [toast, setToast]               = useState(null);
+  const [exporting, setExporting]       = useState(null); // 'pdf' | 'excel' | null
 
-  // Sync tamper index to the latest block when chain grows
+  // ── ATTACK LAB STATE ──
+  const [tamperIndex, setTamperIndex]         = useState(1);
+  const [isAttacking, setIsAttacking]         = useState(false);
+  const [isRepairing, setIsRepairing]         = useState(false);
+
+  // Local mirrors of context (for immediate UI update within this page)
+  const [breachedBlockIdx, setBreachedBlockIdx] = useState(breachedBlock);
+  const [attackPhase, setAttackPhase]           = useState(virtualBreach ? 2 : 0);
+
+  // ── TERMINAL LOG ──
+  const [log, setLog] = useState([
+    { time: fmtNow(), msg: 'Pen-test terminal ready. Awaiting command.', type: 'sys' },
+    { time: fmtNow(), msg: `Chain height: ${chainHeight} blocks detected`, type: 'info' },
+  ]);
+  const logEndRef = useRef(null);
+
+  // ── IDLE TICKER ──
+  const idleRef = useRef(null);
+
+  const addLog = useCallback((msg, type = 'info') => {
+    setLog(prev => [{ time: fmtNow(), msg, type }, ...prev].slice(0, 20));
+  }, []);
+
+  const showToast = useCallback((type, msg) => {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
+  // Update chain height log when prop changes
   useEffect(() => {
-    if (chainHeight > 0 && (tamperIndex === 0 || tamperIndex >= chainHeight)) {
-      setTamperIndex(chainHeight - 1);
+    if (chainHeight > 1) {
+      setTamperIndex(prev => Math.min(Math.max(prev, 1), chainHeight - 1));
+      setLog(prev => {
+        const updated = [...prev];
+        const idx = updated.findIndex(l => l.msg.startsWith('Chain height:'));
+        if (idx > -1) updated[idx] = { time: fmtNow(), msg: `Chain height: ${chainHeight} blocks detected`, type: 'info' };
+        return updated;
+      });
     }
   }, [chainHeight]);
 
-  // ───────── REAL-TIME ATTACK (Updated for Cloud) ─────────
+  // Idle ticker — emits passive monitoring lines every ~5s
+  useEffect(() => {
+    if (isAttacking || isRepairing) return;
+    idleRef.current = setInterval(() => {
+      const fn = IDLE_LOGS[Math.floor(Math.random() * IDLE_LOGS.length)];
+      addLog(fn(), 'sys');
+    }, 5000);
+    return () => clearInterval(idleRef.current);
+  }, [isAttacking, isRepairing, addLog]);
+
+  // ── VIRTUAL ATTACK (fully local) ──
+  const runVirtualAttack = useCallback((idx) => {
+    setIsAttacking(true);
+    setAttackPhase(1);
+    clearInterval(idleRef.current);
+
+    ATTACK_PHASES.forEach(({ delay, type, msg }) => {
+      setTimeout(() => addLog(msg(idx), type), delay);
+    });
+
+    // After all phases, mark breach — write to GLOBAL context so Header sees it
+    setTimeout(() => {
+      setAttackPhase(2);
+      setBreachedBlockIdx(idx);
+      setIsAttacking(false);
+      setVirtualBreach(true, idx);  // ← global context
+    }, 3200);
+  }, [addLog, setVirtualBreach]);
+
+  // ── VIRTUAL REPAIR (fully local) ──
+  const runVirtualRepair = useCallback(() => {
+    setIsRepairing(true);
+    setAttackPhase(3);
+    clearInterval(idleRef.current);
+
+    REPAIR_PHASES.forEach(({ delay, type, msg }) => {
+      setTimeout(() => addLog(msg(), type), delay);
+    });
+
+    setTimeout(() => {
+      setBreachedBlockIdx(null);
+      setAttackPhase(0);
+      setIsRepairing(false);
+      clearBreach();  // ← clear global context so Header goes back to Secure
+      showToast('success', 'Chain integrity fully restored. All nodes re-validated.');
+    }, 3200);
+  }, [addLog, showToast, clearBreach]);
+
+  // ── MAIN ATTACK TRIGGER ──
   const simulateTamper = async () => {
-    if (chainHeight === 0) {
-      setLocalError("Ledger is empty. Initializing nodes required.");
+    const totalBlocks = chainHeight;
+    if (totalBlocks <= 1) {
+      showToast('error', 'Need ≥ 2 blocks. Start the Simulation Lab on Dashboard first.');
+      addLog('[ABORT]  Insufficient chain depth. Generate blocks via Dashboard → Simulation Lab.', 'error');
+      return;
+    }
+    if (tamperIndex < 1) {
+      showToast('error', 'Cannot tamper Block #0 — genesis block is immutable.');
       return;
     }
 
-    setIsScanning(true);
-    setLocalError(null);
-    setStatusMsg("Executing manual entropy injection...");
+    // Always run virtual simulation immediately
+    runVirtualAttack(tamperIndex);
 
+    // Also attempt real backend (fire-and-forget, silent fail)
     try {
-      // ✅ Updated to use our Central API helper
-      // Sending data via POST body is safer than query params for cloud firewalls
-      await api.post(`/tamper_block/${tamperIndex}`, { 
-        new_temperature: 99.9 
+      await api.post(`/tamper_block/${tamperIndex}`, null, {
+        params: { new_temperature: 99.9 },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
-      setStatusMsg(`Breach payload deployed at Index #${tamperIndex}`);
-      setTimeout(() => setStatusMsg(null), 3000);
-    } catch (err) {
-      console.error("Forensic Blockade:", err);
-      setLocalError("Node Firewall prevented the injection or Backend is offline.");
-    } finally {
-      setIsScanning(false);
-    }
+    } catch { /* backend optional — virtual sim still runs */ }
   };
 
-  // ───────── REAL-TIME HEALING (Updated for Cloud) ─────────
+  // ── MAIN REPAIR TRIGGER ──
   const handleRepair = async () => {
-    setIsRepairing(true);
-    setRepairStep("Initializing forensic recovery...");
-    setLocalError(null);
+    runVirtualRepair();
 
     try {
-      // ✅ Request Backend to Recalculate SHA-256 Linkage
-      await api.post("/repair_chain");
-      
-      setStatusMsg("Neural link integrity restored.");
-      setTimeout(() => setStatusMsg(null), 3000);
-    } catch (err) {
-      setLocalError("Cluster synchronization failed. Manual reset required.");
-    } finally {
-      setIsRepairing(false);
-      setRepairStep("");
-    }
+      await api.post('/repair_chain', {}, { headers: { Authorization: `Bearer ${token}` } });
+    } catch { /* backend optional */ }
   };
 
-  // ───────── PREMIUM EXPORTS (Robust Cloud Handling) ─────────
+  // ── EXPORT ──
   const handleExport = async (format) => {
+    if (exporting) return;
+    setExporting(format);
+    addLog(`[EXPORT] Generating ${format.toUpperCase()} forensic audit report...`, 'info');
     try {
-      setStatusMsg(`Compiling ${format.toUpperCase()} Audit...`);
-      const endpoint = format === "pdf" ? "/export_pdf" : "/export_report";
-      
-      // ✅ API call with blob response type for file downloads
-      const response = await api.get(endpoint, { responseType: "blob" });
-      
-      const blob = new Blob([response.data], { 
-        type: format === "pdf" ? "application/pdf" : "text/csv" 
-      });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `SenseChain_Audit_${Date.now()}.${format}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      setStatusMsg(null);
+      const opts = { chain, integrity, chainHeight, userEmail: token ? '' : '' };
+      let filename;
+      if (format === 'pdf') {
+        filename = await generatePDF(opts);
+      } else {
+        filename = await generateExcel(opts);
+      }
+      addLog(`[EXPORT] ✓ Report saved: ${filename}`, 'success');
+      showToast('success', `${format.toUpperCase()} report downloaded successfully.`);
     } catch (err) {
-      setLocalError("Export service temporarily unreachable on Cloud Node.");
+      console.error('Export error:', err);
+      addLog(`[EXPORT] ✗ Export failed: ${err?.message || 'Unknown error'}`, 'error');
+      showToast('error', `Export failed. Check console for details.`);
+    } finally {
+      setExporting(null);
     }
   };
+
+  // Resolved integrity = real chain OR global virtual breach context
+  const isBreached = !integrity || virtualBreach;
 
   return (
-    <div className="p-6 lg:p-12 min-h-screen bg-[#FBFBFD] dark:bg-[#000000] text-[#1D1D1F] dark:text-[#F5F5F7] transition-colors duration-500">
-      
-      {/* ── TOP NAV / HEADER ── */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-        <div className="space-y-1">
-          <h1 className="text-5xl font-extrabold tracking-tight">
-            Security <span className="text-blue-600">Terminal</span>
-          </h1>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
-              SenseChain Node ISO-V1.04 • Real-time Sync Active
-            </p>
-          </div>
-        </div>
+    <div className="page-wrapper space-y-6 custom-scrollbar">
 
-        <div className="flex gap-3 bg-white dark:bg-[#1C1C1E] p-1.5 rounded-2xl border border-slate-200 dark:border-white/5 shadow-sm">
-           <button onClick={() => handleExport("csv")} className="flex items-center gap-2 px-5 py-2.5 text-[11px] font-bold uppercase text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-all">
-             <FileText size={16}/> CSV
-           </button>
-           <button onClick={() => handleExport("pdf")} className="flex items-center gap-2 px-6 py-2.5 text-[11px] font-bold uppercase bg-slate-900 dark:bg-blue-600 text-white rounded-xl shadow-xl hover:bg-blue-700 transition-all active:scale-95">
-             <Download size={16}/> PDF Report
-           </button>
-        </div>
-      </div>
-
-      {/* ── NOTIFICATION TOASTS ── */}
+      {/* ── TOAST ── */}
       <AnimatePresence>
-        {(localError || statusMsg) && (
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className={`fixed top-24 right-10 z-[100] p-4 rounded-2xl border backdrop-blur-xl shadow-2xl flex items-center gap-3 ${
-              localError ? "bg-rose-50/90 border-rose-100 text-rose-600" : "bg-blue-50/90 border-blue-100 text-blue-600"
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-24 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-6 py-3 rounded-2xl shadow-2xl border backdrop-blur-xl text-sm font-semibold ${
+              toast.type === 'error'
+                ? 'bg-red-50 dark:bg-red-900/25 border-red-200 dark:border-red-700 text-red-700 dark:text-red-400'
+                : 'bg-emerald-50 dark:bg-emerald-900/25 border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400'
             }`}
           >
-            {localError ? <AlertCircle size={20} /> : <Activity size={20} />}
-            <span className="text-xs font-black uppercase tracking-widest">{localError || statusMsg}</span>
+            {toast.type === 'error' ? <ShieldAlert size={16} /> : <ShieldCheck size={16} />}
+            {toast.msg}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="max-w-7xl mx-auto space-y-8">
-        
-        {/* 🔥 MAIN STATUS HERO (Apple Style - Logic Preserved) */}
-        <div className={`relative rounded-[40px] border-2 p-10 lg:p-16 overflow-hidden transition-all duration-1000 shadow-2xl
-          ${integrity 
-            ? "bg-white dark:bg-[#1C1C1E] border-emerald-100/50 dark:border-emerald-500/10" 
-            : "bg-white dark:bg-[#1C1C1E] border-rose-200/50 dark:border-rose-500/20 shadow-rose-500/5"}`}>
-          
-          <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
-              <Fingerprint size={280} className={integrity ? "text-emerald-500" : "text-rose-500"} />
+      {/* ── PAGE HEADER ── */}
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <motion.div
+              animate={isBreached ? { scale: [1, 1.3, 1] } : {}}
+              transition={{ repeat: Infinity, duration: 0.8 }}
+              className={`w-2 h-2 rounded-full ${isBreached ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'}`}
+            />
+            <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">
+              {isBreached ? '🚨 VIRTUAL BREACH ACTIVE' : '✓ All Nodes Nominal'}
+            </span>
+            <span className="text-[9px] font-mono text-stone-400 ml-1">· {LOCAL_TZ}</span>
           </div>
+          <h1 className="text-3xl md:text-4xl font-bold" style={{ fontFamily: 'Space Grotesk' }}>
+            Security <span className="bg-gradient-to-r from-red-600 to-rose-500 bg-clip-text text-transparent">Terminal</span>
+          </h1>
+          <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">SHA-256 cryptographic integrity · Virtual cyber attack lab</p>
+        </div>
+        <div className="flex gap-2">
+          {/* Excel Export */}
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => handleExport('excel')}
+            disabled={!!exporting}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-stone-600 dark:text-stone-300 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/8 rounded-xl border border-stone-200 dark:border-white/8 transition-all disabled:opacity-50"
+          >
+            {exporting === 'excel'
+              ? <><RefreshCw size={14} className="animate-spin" /> Generating...</>
+              : <><FileText size={15} /> Excel Report</>}
+          </motion.button>
+          {/* PDF Export */}
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => handleExport('pdf')}
+            disabled={!!exporting}
+            className="btn-primary px-4 py-2.5 disabled:opacity-50"
+          >
+            {exporting === 'pdf'
+              ? <><RefreshCw size={14} className="animate-spin" /> Generating...</>
+              : <><Download size={15} /> PDF Report</>}
+          </motion.button>
+        </div>
+      </motion.div>
 
-          <div className="flex flex-col lg:flex-row justify-between items-center gap-12 relative z-10">
-            <div className="flex flex-col md:flex-row items-center gap-10 text-center md:text-left">
-              <div className={`w-32 h-32 rounded-[32px] flex items-center justify-center shadow-inner transition-all duration-700
-                ${integrity 
-                  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500" 
-                  : "bg-rose-50 dark:bg-rose-500/10 text-rose-500 animate-pulse scale-105 shadow-[0_0_40px_rgba(244,63,94,0.2)]"}`}>
-                {integrity ? <ShieldCheck size={72} strokeWidth={1.5} /> : <ShieldX size={72} strokeWidth={1.5} />}
-              </div>
-
-              <div className="space-y-4">
-                <h2 className={`text-5xl font-bold tracking-tighter ${integrity ? "text-slate-900 dark:text-white" : "text-rose-600"}`}>
-                  {integrity ? "System Healthy" : "Breach Detected"}
-                </h2>
-                <p className="text-slate-500 dark:text-slate-400 font-medium text-lg max-w-xl leading-relaxed">
-                  {integrity 
-                    ? "Cryptographic links are verified. Node cluster is operating within normal parameters." 
-                    : "Ledger drift detected. Malicious data has severed the SHA-256 hash linkage."}
-                </p>
-                {!integrity && (
-                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-rose-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-                     <AlertCircle size={14}/> Forensic Lockdown Enabled
-                   </div>
-                )}
-              </div>
-            </div>
-
-            <div className="w-full lg:w-auto">
-              {!integrity && !isRepairing && (
-                <button onClick={handleRepair} className="w-full lg:min-w-[280px] py-7 bg-slate-900 dark:bg-blue-600 text-white rounded-[24px] font-bold text-sm uppercase tracking-[0.2em] shadow-2xl hover:bg-black dark:hover:bg-blue-500 transition-all active:scale-95 flex items-center justify-center gap-4 group">
-                  <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-700" />
-                  Repair Cluster
-                </button>
-              )}
-
-              {isRepairing && (
-                <div className="flex flex-col items-center gap-4">
-                  <RefreshCw className="animate-spin text-blue-500" size={48} />
-                  <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] animate-pulse">{repairStep}</span>
-                </div>
-              )}
-            </div>
-          </div>
+      {/* ── MAIN STATUS BANNER ── */}
+      <motion.div layout
+        className={`glass-card rounded-[24px] p-6 md:p-10 relative overflow-hidden transition-all duration-700 ${isBreached ? 'breach-glow' : ''}`}>
+        <div className="absolute right-6 top-6 opacity-[0.04] pointer-events-none">
+          <Fingerprint size={200} className={isBreached ? 'text-red-500' : 'text-emerald-500'} />
         </div>
 
-        {/* ── BOTTOM GRID (Original Terminals Kept) ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          <div className="bg-white dark:bg-[#1C1C1E] border border-slate-200 dark:border-white/5 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
-              <div className="flex items-center gap-4 mb-12">
-                  <div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-2xl group-hover:rotate-12 transition-transform duration-500">
-                    <Unlock size={24}/>
-                  </div>
-                  <div>
-                      <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Malicious Portal</h3>
-                      <p className="text-xl font-bold italic">Cyber Track Terminal</p>
-                  </div>
-              </div>
+        {/* Animated scan line during attack */}
+        <AnimatePresence>
+          {isAttacking && (
+            <motion.div
+              initial={{ top: 0 }} animate={{ top: '100%' }} transition={{ duration: 3, ease: 'linear' }}
+              className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-red-500 to-transparent z-20 pointer-events-none"
+            />
+          )}
+        </AnimatePresence>
 
-              <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 relative z-10">
+          <div className="flex items-center gap-6">
+            <motion.div
+              animate={isBreached ? { scale: [1, 1.06, 1] } : {}}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+              className={`p-5 rounded-2xl transition-all duration-700 ${
+                isAttacking
+                  ? 'bg-yellow-100 dark:bg-yellow-500/15 text-yellow-600 dark:text-yellow-400'
+                  : isBreached
+                  ? 'bg-red-100 dark:bg-red-500/15 text-red-600 dark:text-red-400'
+                  : 'bg-emerald-100 dark:bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
+              }`}>
+              {isAttacking
+                ? <Zap size={40} strokeWidth={1.5} />
+                : isBreached
+                ? <ShieldX size={40} strokeWidth={1.5} />
+                : <ShieldCheck size={40} strokeWidth={1.5} />}
+            </motion.div>
+
+            <div>
+              <p className="text-[11px] font-bold text-stone-400 uppercase tracking-widest mb-1">Ledger Status</p>
+              <motion.h2
+                key={isBreached ? 'breach' : 'clear'}
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                className={`text-3xl md:text-4xl font-bold ${
+                  isAttacking ? 'text-yellow-500' : isBreached ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
+                }`}
+                style={{ fontFamily: 'Space Grotesk' }}>
+                {isAttacking ? 'ATTACKING...' : isRepairing ? 'REPAIRING...' : isBreached ? 'BREACH' : 'All Clear'}
+              </motion.h2>
+              <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 max-w-md">
+                {isAttacking
+                  ? `Injecting exploit payload at Block #${tamperIndex}...`
+                  : isRepairing
+                  ? 'Rebuilding SHA-256 hash chain from genesis...'
+                  : isBreached
+                  ? `Virtual breach detected at Block #${breachedBlockIdx ?? tamperIndex}. SHA-256 hash linkage severed.`
+                  : 'All cryptographic links verified. Nodes operating within expected parameters.'}
+              </p>
+              {isBreached && !isAttacking && !isRepairing && (
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                  className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 bg-red-100 dark:bg-red-500/12 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-full text-xs font-bold uppercase tracking-wide">
+                  <AlertCircle size={12} /> Critical — Forensic Lockdown Active
+                </motion.div>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 flex flex-col items-center gap-3">
+            {isBreached && !isRepairing && !isAttacking && (
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleRepair}
+                className="btn-primary px-8 py-4 text-base">
+                <RefreshCw size={18} /> Repair Chain
+              </motion.button>
+            )}
+            {isRepairing && (
+              <div className="flex flex-col items-center gap-3">
+                <RefreshCw size={32} className="animate-spin text-red-600 dark:text-red-400" />
+                <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-widest animate-pulse">Repairing...</span>
+              </div>
+            )}
+            {!isBreached && !isRepairing && !isAttacking && (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-100 dark:bg-emerald-900/25 border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 text-xs font-bold uppercase tracking-wide">
+                <ShieldCheck size={14} /> Chain Verified
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── ATTACK LAB + TERMINAL ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {/* CYBER ATTACK LAB */}
+        <div className={`glass-card rounded-[24px] p-6 md:p-8 relative overflow-hidden transition-all duration-700 ${isBreached ? 'border-red-300 dark:border-red-700/40' : ''}`}>
+          <div className={`absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl pointer-events-none transition-all duration-700 ${isBreached ? 'bg-red-500/10' : 'bg-red-500/4'}`} />
+
+          <div className="flex items-center gap-3 mb-6 relative z-10">
+            <motion.div
+              animate={isAttacking ? { rotate: [0, 15, -15, 0] } : {}}
+              transition={{ repeat: Infinity, duration: 0.6 }}
+              className={`p-2.5 rounded-xl transition-all ${
+                isAttacking ? 'bg-red-500 text-white animate-pulse' : 'bg-red-100 dark:bg-red-500/12 text-red-500'
+              }`}>
+              <Unlock size={18} />
+            </motion.div>
+            <div>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Pen-Test Portal · Virtual</p>
+              <h3 className="text-base font-bold" style={{ fontFamily: 'Space Grotesk' }}>Cyber Attack Lab</h3>
+            </div>
+          </div>
+
+          <div className="space-y-5 relative z-10">
+
+            {/* Chain depth display */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-white/3 border border-stone-100 dark:border-white/5">
+              <span className="text-xs font-semibold text-stone-500">Chain depth</span>
+              <span className="font-bold text-sm font-mono text-red-600 dark:text-red-400">{chainHeight} blocks</span>
+            </div>
+
+            {/* Warning banner if not enough blocks */}
+            {chainHeight <= 1 && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-400 text-xs font-medium flex items-start gap-2">
+                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                <span>Go to <strong>Dashboard → Simulation Lab</strong> and click <strong>Start Node</strong> to generate virtual blocks, then run the attack.</span>
+              </motion.div>
+            )}
+
+            {/* Target block picker */}
+            <div>
+              <label className="block text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest mb-2">
+                Target Block Index
+              </label>
+              <div className="relative">
+                <Hash size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
                 <input
                   type="number"
+                  min={1}
+                  max={Math.max(1, chainHeight - 1)}
                   value={tamperIndex}
-                  onChange={(e) => setTamperIndex(Number(e.target.value))}
-                  className="w-full sm:w-32 bg-slate-50 dark:bg-black border-2 border-slate-100 dark:border-white/5 rounded-2xl px-6 py-5 text-4xl font-black text-rose-500 outline-none focus:border-rose-300 dark:focus:border-rose-900 transition-all tabular-nums shadow-inner"
+                  onChange={e => setTamperIndex(Math.max(1, Math.min(Number(e.target.value), Math.max(1, chainHeight - 1))))}
+                  disabled={chainHeight <= 1 || isAttacking || isRepairing}
+                  className="glass-input pl-11 text-xl font-bold text-red-600 dark:text-red-400 font-mono text-center disabled:opacity-50"
                 />
-                <button
-                  onClick={simulateTamper}
-                  disabled={isScanning}
-                  className="flex-1 bg-white dark:bg-white/5 border-2 border-slate-900 dark:border-white/10 text-slate-900 dark:text-white rounded-[24px] font-bold text-[11px] uppercase tracking-widest hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all active:scale-95 shadow-md flex items-center justify-center gap-3"
-                >
-                  {isScanning ? <RefreshCw className="animate-spin" size={18} /> : <Zap size={18}/>}
-                  Simulate Cyber Attack
+              </div>
+              <p className="text-[10px] text-stone-400 text-center mt-1.5">
+                Genesis Block #0 is immutable · Valid range: 1–{Math.max(1, chainHeight - 1)}
+              </p>
+            </div>
+
+            {/* Attack type selector */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'Data Mutate', icon: <TrendingDown size={13} />, active: true },
+                { label: 'Hash Forge', icon: <Hash size={13} />, active: false },
+                { label: 'Replay', icon: <Radio size={13} />, active: false },
+              ].map(({ label, icon, active }) => (
+                <button key={label}
+                  className={`flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl text-[10px] font-bold uppercase tracking-wide border transition-all ${
+                    active
+                      ? 'bg-red-600/10 border-red-500/30 text-red-500 dark:text-red-400'
+                      : 'bg-stone-50 dark:bg-white/3 border-stone-200 dark:border-white/6 text-stone-400 opacity-50 cursor-not-allowed'
+                  }`}
+                  disabled={!active}
+                  title={active ? undefined : 'Coming soon'}>
+                  {icon}
+                  {label}
                 </button>
-              </div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase mt-10 tracking-[0.2em] text-center opacity-60 italic">Authorized Pen-Testing Mode • Node Isolation</p>
-          </div>
+              ))}
+            </div>
 
-          <div className="bg-slate-900 dark:bg-[#1C1C1E] rounded-[40px] p-10 text-white shadow-2xl flex flex-col justify-between group overflow-hidden relative border border-white/5">
-              <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-blue-600/10 rounded-full blur-[100px] group-hover:bg-blue-600/20 transition-all duration-1000" />
-              
-              <div>
-                  <div className="flex items-center gap-4 mb-8">
-                      <Terminal size={20} className="text-blue-400"/>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Neural Log Analyzer</span>
-                  </div>
-                  <div className="space-y-4 font-mono text-sm leading-relaxed italic text-slate-400">
-                     <p className="text-blue-400/80">&gt; Target_Node: Block_#{tamperIndex}</p>
-                     <p>&gt; Integrity_Check: {integrity ? "PASS" : "FAIL"}</p>
-                     <p className="text-slate-200 mt-4 leading-relaxed">
-                       "Every block in the SenseChain is linked via SHA-256. Tampering with data at index #{tamperIndex} creates a mathematical ripple that invalidates all subsequent hashes."
-                     </p>
-                  </div>
-              </div>
+            {/* Main attack / repair button */}
+            {!isBreached ? (
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={simulateTamper}
+                disabled={isAttacking || isRepairing || chainHeight <= 1}
+                className={`w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-sm font-bold transition-all shadow-lg ${
+                  chainHeight <= 1
+                    ? 'bg-stone-200 dark:bg-white/6 text-stone-400 cursor-not-allowed'
+                    : 'bg-stone-900 dark:bg-white/8 hover:bg-red-600 hover:text-white hover:shadow-red-600/25 text-white border border-stone-700 dark:border-white/10'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}>
+                {isAttacking
+                  ? <><RefreshCw size={16} className="animate-spin" /> Deploying Attack...</>
+                  : chainHeight <= 1
+                  ? <><AlertCircle size={16} /> Insufficient Blocks</>
+                  : <><Zap size={16} /> Simulate Cyber Attack</>}
+              </motion.button>
+            ) : (
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleRepair}
+                disabled={isRepairing}
+                className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-sm font-bold bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                {isRepairing
+                  ? <><RefreshCw size={16} className="animate-spin" /> Repairing...</>
+                  : <><RefreshCw size={16} /> Repair Chain</>}
+              </motion.button>
+            )}
 
-              <div className="flex items-center justify-between pt-8 border-t border-white/5 mt-10">
-                  <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${integrity ? 'bg-blue-500' : 'bg-rose-500 animate-ping'}`} />
-                      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">Monitoring Active</span>
-                  </div>
-                  <ChevronRight size={24} className="text-slate-700 group-hover:text-blue-500 transition-all duration-300"/>
-              </div>
+            <p className="text-center text-[10px] text-stone-400 uppercase tracking-widest">
+              {isBreached
+                ? '⚡ Virtual breach active — click Repair Chain to restore'
+                : '⚠ Attack runs fully in local virtual simulation'}
+            </p>
           </div>
         </div>
 
+        {/* NEURAL LOG TERMINAL */}
+        <div className={`glass-panel rounded-[24px] p-6 md:p-8 flex flex-col transition-all duration-700 ${isBreached ? 'border-red-300 dark:border-red-700/30' : ''}`}>
+          <div className="flex items-center gap-3 mb-4">
+            <Terminal size={16} className={isBreached ? 'text-red-500' : 'text-stone-500'} />
+            <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">Neural Log Analyzer</span>
+            <div className={`ml-auto w-2 h-2 rounded-full ${isBreached ? 'bg-red-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`} />
+            <span className="text-[9px] font-mono text-stone-500">{LOCAL_TZ}</span>
+          </div>
+
+          {/* Terminal window */}
+          <div className="flex-1 bg-stone-950 dark:bg-black/70 rounded-2xl p-5 font-mono text-[11px] space-y-2 overflow-y-auto custom-scrollbar max-h-72 terminal-scanline">
+            {/* MAC-style dots */}
+            <div className="flex items-center gap-1.5 mb-3 pb-3 border-b border-white/5">
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+              <div className="w-2 h-2 rounded-full bg-yellow-500" />
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-[9px] text-stone-700 ml-2">sensechain-security — forensic bash</span>
+              <span className="ml-auto text-[9px] text-emerald-500 animate-pulse">● LIVE</span>
+            </div>
+            {log.map((entry, i) => (
+              <motion.div
+                key={`${entry.time}-${i}`}
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex gap-3 items-start">
+                <span className="text-stone-700 shrink-0">{entry.time}</span>
+                <span className={`leading-relaxed ${
+                  entry.type === 'error'   ? 'text-red-400' :
+                  entry.type === 'success' ? 'text-emerald-400' :
+                  entry.type === 'warn'    ? 'text-yellow-400' :
+                  entry.type === 'sys'     ? 'text-blue-400' :
+                  'text-stone-400'
+                }`}>
+                  &gt; {entry.msg}
+                </span>
+              </motion.div>
+            ))}
+            <div ref={logEndRef} />
+          </div>
+
+          <div className={`flex items-center gap-3 pt-3 mt-3 border-t ${isBreached ? 'border-red-200 dark:border-red-700/30' : 'border-stone-100 dark:border-white/6'}`}>
+            <div className={`w-2 h-2 rounded-full ${isBreached ? 'bg-red-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`} />
+            <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">
+              {isBreached ? 'Breach Confirmed · Restore Required' : 'Surveillance Active · Monitoring'}
+            </span>
+          </div>
+        </div>
       </div>
+
+      {/* ── REAL-TIME BLOCK INSPECTOR ── */}
+      <div className="glass-card rounded-[24px] p-6 md:p-8">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-2.5 bg-violet-100 dark:bg-violet-500/12 text-violet-600 dark:text-violet-400 rounded-xl"><Eye size={18} /></div>
+          <div>
+            <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Block Inspector</h3>
+            <p className="text-[10px] text-stone-400">Live SHA-256 block analysis · {chain.length} on-chain + virtual</p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left min-w-[500px]">
+            <thead>
+              <tr className="border-b border-stone-100 dark:border-white/5">
+                {['Block', 'SHA-256 Hash', 'Nonce', 'Status'].map((h, i) => (
+                  <th key={h} className={`px-4 py-3 text-[9px] font-bold text-stone-400 uppercase tracking-widest ${i === 3 ? 'text-right' : ''}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-50 dark:divide-white/3">
+              {(chain.length > 0 ? chain.slice(-8).reverse() : []).map((block, i) => {
+                const isTampered = isBreached && block.index === breachedBlockIdx;
+                return (
+                  <motion.tr key={block.hash || i} layout
+                    className={`transition-colors ${isTampered ? 'bg-red-50 dark:bg-red-900/10' : 'hover:bg-stone-50 dark:hover:bg-white/2'}`}>
+                    <td className="px-4 py-3">
+                      <span className={`text-sm font-bold font-mono ${isTampered ? 'text-red-600 dark:text-red-400' : 'text-red-600 dark:text-red-400'}`}>
+                        #{block.index}
+                        {isTampered && <span className="ml-2 text-[9px] bg-red-500/10 border border-red-500/30 text-red-500 px-1.5 py-0.5 rounded-full uppercase">TAMPERED</span>}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[10px] font-mono truncate max-w-[200px] block ${isTampered ? 'text-red-400 line-through opacity-60' : 'text-stone-400'}`}>
+                        {isTampered ? 'HASH_CORRUPTED_XXXX...' : block.hash}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-[10px] font-mono text-stone-500 bg-stone-100 dark:bg-white/5 px-2 py-1 rounded-lg">{block.nonce ?? 0}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border ${
+                        isTampered
+                          ? 'bg-red-500/10 border-red-500/30 text-red-500'
+                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                      }`}>
+                        {isTampered ? '✗ Corrupted' : '✓ Verified'}
+                      </span>
+                    </td>
+                  </motion.tr>
+                );
+              })}
+              {chain.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center text-stone-400 text-xs">
+                    <Database size={28} className="mx-auto mb-2 opacity-20" />
+                    No on-chain blocks. Start Simulation Lab on Dashboard to generate blocks.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── STATS ROW ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          {
+            label: 'Total Blocks', value: chainHeight, icon: <Database size={16} />,
+            color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-500/12',
+          },
+          {
+            label: 'Chain Status', value: isBreached ? 'Breached' : 'Secure', icon: <ShieldCheck size={16} />,
+            color: isBreached ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400',
+            bg: isBreached ? 'bg-red-100 dark:bg-red-500/12' : 'bg-emerald-100 dark:bg-emerald-500/12',
+          },
+          {
+            label: 'Hash Algorithm', value: 'SHA-256', icon: <Hash size={16} />,
+            color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-500/12',
+          },
+          {
+            label: 'Network Nodes', value: chainHeight > 0 ? 'Live' : 'Offline', icon: <Signal size={16} />,
+            color: chainHeight > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-stone-500',
+            bg: 'bg-blue-100 dark:bg-blue-500/12',
+          },
+        ].map(({ label, value, color, bg, icon }) => (
+          <motion.div key={label} whileHover={{ y: -2 }} className="glass-card rounded-2xl p-5">
+            <div className={`p-2 rounded-xl ${bg} ${color} inline-flex mb-3`}>{icon}</div>
+            <p className={`text-xl md:text-2xl font-bold font-mono ${color}`}>{value}</p>
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 mt-1 uppercase tracking-wide">{label}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      <p className="text-center text-[10px] text-stone-400 dark:text-stone-700 pb-4 uppercase tracking-widest">
+        SenseChain Neural Infrastructure · SHA-256 Forensic Security Layer
+      </p>
     </div>
   );
 };

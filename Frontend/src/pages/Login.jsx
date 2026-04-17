@@ -2,141 +2,227 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-// ✅ Cleaned up unused imports (Zap, LockIcon removed)
-import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, Activity } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, Activity, Eye, EyeOff, Blocks, Zap } from 'lucide-react';
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ||
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://127.0.0.1:8000'
+    : 'https://sensechain.onrender.com');
 
 const Login = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
-    const navigate = useNavigate();
-    const { login } = useAuth();
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        login(data.access_token, email);
+        navigate('/');
+      } else {
+        setError(data.detail || 'Invalid credentials. Please try again.');
+      }
+    } catch {
+      setError('Unable to reach server. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleLogin = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        try {
-            // ✅ FIXED: Using Render URL instead of 127.0.0.1
-            const response = await fetch('https://sensechain.onrender.com/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
-            });
-            const data = await response.json();
-            if (response.ok) {
-                login(data.access_token, email);
-                navigate('/');
-            } else {
-                setError(data.detail || 'Invalid email or password');
-            }
-        } catch (err) {
-            console.error("Login Error:", err);
-            setError('Server not available. Please check your connection.');
-        } finally {
-            setLoading(false);
-        }
-    };
+  return (
+    <div className="auth-bg relative overflow-hidden">
+      {/* Animated grid */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(220,38,38,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(220,38,38,0.07) 1px, transparent 1px)',
+          backgroundSize: '56px 56px'
+        }}
+      />
+      {/* Glow blobs */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-red-500/10 rounded-full blur-[120px] pointer-events-none animate-pulse" />
+      <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-rose-900/15 rounded-full blur-[80px] pointer-events-none" />
 
-    return (
-        <div className="min-h-screen flex items-center justify-center p-6 bg-[#F5F5F7] dark:bg-[#020617] relative overflow-hidden transition-colors duration-500">
-            {/* Background Blobs */}
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/10 blur-[120px] rounded-full" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-400/10 blur-[120px] rounded-full" />
-
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="w-full max-w-[420px] z-10"
+      <div className="relative z-10 w-full max-w-[440px] flex flex-col">
+        {/* Left panel: brand block */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="text-center mb-8"
+        >
+          {/* Logo */}
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <motion.div
+              animate={{ rotate: [0, 4, -4, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+              className="brand-logo w-12 h-12 rounded-[16px] flex items-center justify-center relative"
             >
-                <div className="bg-white/70 dark:bg-white/5 backdrop-blur-2xl border border-white/40 dark:border-white/10 rounded-[2.5rem] p-10 shadow-2xl shadow-slate-200/50 dark:shadow-none">
-                    
-                    {/* Branding - Logo with Heartbeat Motion */}
-                    <div className="flex flex-col items-center mb-10">
-                        <div className="p-4 bg-gradient-to-r from-blue-600 to-black rounded-3xl shadow-xl shadow-indigo-500/20 mb-4">
-                            <div className="relative flex items-center justify-center">
-                                <ShieldCheck size={28} className="text-white/30" /> 
-                                
-                                <motion.div 
-                                    animate={{ 
-                                        opacity: [0.4, 1, 0.4], 
-                                        scale: [0.9, 1.1, 0.9] 
-                                    }}
-                                    transition={{ 
-                                        duration: 2, 
-                                        repeat: Infinity, 
-                                        ease: "easeInOut" 
-                                    }}
-                                    className="absolute"
-                                >
-                                    <Activity size={18} className="text-white fill-current" />
-                                </motion.div>
-                            </div>
-                        </div>
-                        <h1 className="text-5xl font-semibold tracking-tight dark:text-white"> SenseChain</h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-1 text-center">Please Login to Access</p>
-                    </div>
-
-                    <form onSubmit={handleLogin} className="space-y-5">
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Email</label>
-                            <div className="relative group">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
-                                <input
-                                    type="email"
-                                    placeholder="name@example.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    className="w-full pl-12 pr-4 py-4 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-2xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all dark:text-white text-sm font-medium"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <div className="flex justify-between items-center">
-                                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Password</label>
-                                <Link to="/forgot-password" size={14} className="text-[11px] font-bold text-indigo-500 hover:text-indigo-600 uppercase tracking-tighter">Forgot?</Link>
-                            </div>
-                            <div className="relative group">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
-                                <input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    className="w-full pl-12 pr-4 py-4 bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-2xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all dark:text-white text-sm font-medium"
-                                />
-                            </div>
-                        </div>
-
-                        <AnimatePresence>
-                            {error && (
-                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 p-3 rounded-xl">
-                                    <p className="text-xs font-bold text-rose-500 text-center uppercase tracking-tight">{error}</p>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-4 bg-gradient-to-r from-blue-600 to-black hover:from-black hover:to-red-600 text-white rounded-2xl font-black tracking-widest text-xs shadow-xl shadow-indigo-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                        >
-                            {loading ? <Loader2 className="animate-spin" size={18} /> : <>Login <ArrowRight size={16} /></>}
-                        </button>
-                    </form>
-
-                    <p className="mt-8 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        New to network? <Link to="/signup" className="text-blue-500 hover:text-blue-600 ml-1">Sign Up</Link>
-                    </p>
-                </div>
+              <ShieldCheck size={20} className="text-white/20 absolute" />
+              <Activity size={12} className="text-white relative z-10" fill="white" />
             </motion.div>
-        </div>
-    );
+            <div className="text-left">
+              <span className="block text-xl font-bold tracking-tight text-stone-900 dark:text-white" style={{ fontFamily: 'Space Grotesk' }}>
+                SenseChain
+              </span>
+              <span className="block text-[9px] font-bold text-red-600 dark:text-red-500 uppercase tracking-[0.25em]">
+                NEURAL LEDGER PLATFORM
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Auth Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1], delay: 0.05 }}
+          className="glass-card rounded-[28px] overflow-hidden"
+        >
+          {/* Top accent bar */}
+          <div className="h-1 bg-gradient-to-r from-red-600 via-rose-500 to-red-800" />
+
+          <div className="p-8 md:p-10">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: 'Space Grotesk' }}>
+                Welcome back
+              </h1>
+              <p className="text-sm text-stone-500 dark:text-stone-400">
+                Sign in to your SenseChain command center
+              </p>
+            </div>
+
+            {/* Error */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                  className="flex items-start gap-3 mb-5 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm font-medium"
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0 animate-pulse" />
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-widest mb-1.5">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@sensechain.io"
+                    required
+                    className="glass-input pl-11"
+                    autoComplete="email"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-stone-600 dark:text-stone-400 uppercase tracking-widest">Password</label>
+                  <Link to="/forgot-password" className="text-[11px] font-semibold text-red-600 dark:text-red-400 hover:text-red-700 transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <input
+                    type={showPw ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                    className="glass-input pl-11 pr-12"
+                    autoComplete="current-password"
+                  />
+                  <button type="button" onClick={() => setShowPw(!showPw)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 hover:text-red-600 transition-colors">
+                    {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit */}
+              <motion.button
+                type="submit"
+                disabled={loading}
+                whileHover={{ scale: loading ? 1 : 1.01 }}
+                whileTap={{ scale: loading ? 1 : 0.98 }}
+                className="btn-primary w-full mt-2 py-3.5"
+              >
+                {loading
+                  ? <><Loader2 size={16} className="animate-spin" /> Authenticating...</>
+                  : <><ArrowRight size={16} /> Sign In to Dashboard</>
+                }
+              </motion.button>
+            </form>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 my-6">
+              <div className="flex-1 h-px bg-stone-200 dark:bg-white/6" />
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">New here?</span>
+              <div className="flex-1 h-px bg-stone-200 dark:bg-white/6" />
+            </div>
+
+            {/* Sign up link */}
+            <Link to="/signup">
+              <motion.div
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-stone-200 dark:border-white/8 text-sm font-semibold text-stone-700 dark:text-stone-300 hover:border-red-400 dark:hover:border-red-600/40 hover:text-red-600 dark:hover:text-red-400 transition-all cursor-pointer"
+              >
+                <Blocks size={15} className="text-red-500" />
+                Create a SenseChain Account
+              </motion.div>
+            </Link>
+          </div>
+        </motion.div>
+
+        {/* Trust badges */}
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+          className="flex items-center justify-center gap-6 mt-6"
+        >
+          {[
+            { icon: <ShieldCheck size={12} />, text: 'SHA-256 Secured' },
+            { icon: <Zap size={12} />, text: 'Real-time Sync' },
+            { icon: <Activity size={12} />, text: 'Live Monitoring' },
+          ].map(item => (
+            <div key={item.text} className="flex items-center gap-1.5 text-[10px] font-semibold text-stone-400 dark:text-stone-600">
+              <span className="text-red-500">{item.icon}</span>
+              {item.text}
+            </div>
+          ))}
+        </motion.div>
+
+        <p className="text-center mt-5 text-[10px] text-stone-400 dark:text-stone-700 uppercase tracking-widest">
+          SenseChain Neural Infrastructure · 2026
+        </p>
+      </div>
+    </div>
+  );
 };
 
 export default Login;

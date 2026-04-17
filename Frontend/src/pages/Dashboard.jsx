@@ -1,100 +1,193 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  Activity, ShieldCheck, Search, Database, Globe, ChevronRight, ShieldAlert, Cpu as Brain, 
-  RefreshCw, Heart, Sparkles, Thermometer, Droplets, Flame, X, Info,
-  Play, Pause, Terminal, Radio, Share2, Copy, Check, Cpu, Zap
+  Activity, ShieldCheck, ShieldAlert, Search, Database, Globe, ChevronRight,
+  Cpu, Sparkles, Thermometer, Droplets, Flame, X, Info,
+  Play, Pause, Terminal, Radio, Copy, Check, Zap, Heart, Blocks,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-// ✅ IMPORT CENTRAL API
-import API from '../services/api';
+
+// ── LOCAL TIMEZONE TIMESTAMP (always matches PC clock) ──
+const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const fmtTime = (ts) => {
+  if (!ts && ts !== 0) return '--:--:--';
+  try {
+    const raw = Number(ts);
+    const ms = raw < 1e12 ? raw * 1000 : raw;
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false, timeZone: LOCAL_TZ,
+    }).format(new Date(ms));
+  } catch { return '--:--:--'; }
+};
+
+const fmtDate = (ts) => {
+  if (!ts) return '';
+  try {
+    const raw = Number(ts);
+    const ms = raw < 1e12 ? raw * 1000 : raw;
+    return new Intl.DateTimeFormat('en-GB', {
+      month: 'short', day: 'numeric', timeZone: LOCAL_TZ,
+    }).format(new Date(ms));
+  } catch { return ''; }
+};
+
+const nowTime = () =>
+  new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false, timeZone: LOCAL_TZ,
+  }).format(new Date());
+
+// ── SIMULATION ENGINE (pure local, no backend needed) ──
+const SIM_INTERVAL_MS = 1800;
+const SIM_LOG_POOL = [
+  (node, blk) => `[INGEST] Block #${blk} SHA-256 Validated`,
+  (node)      => `[SYNC]   Node ${node} pushing telemetry packet`,
+  ()          => `[AUTH]   Cryptographic Signature Verified`,
+  ()          => `[DB]     Write-stream: ✓ SUCCESS`,
+  ()          => `[NET]    Latency: ${(Math.random() * 0.5 + 0.08).toFixed(3)}ms`,
+  ()          => `[HASH]   PoW solved. Difficulty satisfied.`,
+  (node)      => `[BCAST]  ${node} broadcasting to peer mesh`,
+  ()          => `[BLOCK]  Merkle root computed. Sealed.`,
+  ()          => `[TLS]    Handshake renewed.`,
+  ()          => `[TEMP]   Sensor: ${(22 + Math.random() * 8).toFixed(1)}°C`,
+];
+
+// Generate a fake virtual block for simulation display
+let _simBlockCount = 0;
+const makeFakeBlock = (nodeId, baseIdx) => {
+  _simBlockCount++;
+  const temp = parseFloat((22 + Math.sin(_simBlockCount * 0.4) * 4 + Math.random()).toFixed(1));
+  const humidity = parseFloat((50 + Math.cos(_simBlockCount * 0.4) * 6 + Math.random()).toFixed(1));
+  return {
+    index: baseIdx + _simBlockCount,
+    nonce: Math.floor(Math.random() * 99999),
+    hash: '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+    timestamp: Date.now(),
+    data: { temperature: temp, humidity, node_id: nodeId, virtual: true },
+    _virtual: true,
+  };
+};
 
 const Dashboard = ({
   chain = [],
   integrity = true,
-  lastUpdated = "",
+  lastUpdated = '',
   connError = null,
-  chainHeight = 0
+  chainHeight = 0,
+  refreshData = null,
 }) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [copiedHash, setCopiedHash] = useState(null);
-  const [activeModal, setActiveModal] = useState(null);
-  
-  // ✅ SIMULATION STATES
+  const [searchTerm, setSearchTerm]     = useState('');
+  const [copiedHash, setCopiedHash]     = useState(null);
+  const [activeModal, setActiveModal]   = useState(null);
+
+  // ── SIMULATION STATE ──
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simNode, setSimNode] = useState("SENSE_NODE_SIM_01");
-  const [simLogs, setSimLogs] = useState([]);
+  const [simNode, setSimNode]           = useState('SENSE-NODE-01');
+  const [simLogs, setSimLogs]           = useState([]);
+  const [simBlocks, setSimBlocks]       = useState([]);   // virtual blocks generated locally
+  const [simTick, setSimTick]           = useState(0);    // forces chart refresh
+  const simIntervalRef = useRef(null);
+  const simBlocksRef   = useRef([]);
 
-  // 🧠 --- ORIGINAL AI ANALYSIS LOGIC (Kept exactly as is) ---
-  const aiAnalysis = useMemo(() => {
-    if (chain.length < 2) return { status: 'Initializing', message: 'Gathering neural data...', score: 100, anomalies: [] };
-    const lastBlocks = chain.slice(-5);
-    const latest = lastBlocks[lastBlocks.length - 1].data;
-    const previous = lastBlocks[lastBlocks.length - 2].data;
-    let anomalies = [];
-    let score = 100;
-    let message = "All systems operating within nominal parameters.";
+  // keep ref in sync
+  simBlocksRef.current = simBlocks;
 
-    if (!integrity) {
-      anomalies.push({ type: 'CRITICAL', msg: 'Cryptographic Breach' });
-      score -= 50;
-      message = "Emergency: Blockchain integrity compromise detected.";
-    }
-    const tempChange = Math.abs((latest.temperature || 0) - (previous.temperature || 0));
-    if (tempChange > (previous.temperature * 0.1)) {
-      anomalies.push({ type: 'WARNING', msg: 'Thermal Spike' });
-      score -= 20;
-      message = "Temperature fluctuation detected. Possible environmental anomaly.";
-    }
-    if (integrity && anomalies.length === 0) {
-       if (latest.temperature > previous.temperature) message = "Blockchain growing steadily with a upward thermal trend.";
-       else message = "Network pulse is stable. Data throughput is optimized.";
-    }
-    return { status: anomalies.length > 0 ? 'Anomaly Detected' : 'Stable', message, score: Math.max(score, 0), anomalies };
-  }, [chain, integrity]);
-
-  // 📊 --- CHART DATA MAPPING ---
-  const telemetryData = useMemo(() => {
-    return chain.slice(-20).map(b => ({
-      index: `#${b.index}`,
-      temp: Number(b.data?.temperature || 0),
-      humidity: Number(b.data?.humidity || 0),
-      timestamp: b.timestamp
-    }));
+  // ── NORMALIZE BLOCK INDEX ──
+  const normalizedChain = useMemo(() => {
+    if (!chain?.length) return [];
+    const allZero = chain.every(b => b.index === 0);
+    if (allZero) return chain.map((b, i) => ({ ...b, index: i }));
+    return chain;
   }, [chain]);
 
-  // ✅ SIMULATION LOG ENGINE
+  // Merge real chain + virtual sim blocks
+  const mergedChain = useMemo(() => {
+    if (!isSimulating || simBlocks.length === 0) return normalizedChain;
+    return [...normalizedChain, ...simBlocks];
+  }, [normalizedChain, simBlocks, isSimulating, simTick]); // eslint-disable-line
+
+  // ── AI ANALYSIS ──
+  const aiAnalysis = useMemo(() => {
+    if (!mergedChain || mergedChain.length < 2)
+      return { status: 'Initializing', message: 'Gathering neural data...', score: 100, anomalies: [] };
+    const lastBlocks = mergedChain.slice(-5);
+    const parse = (b) => { let d = b?.data; if (typeof d === 'string') { try { d = JSON.parse(d); } catch { d = {}; } } return d || {}; };
+    const latest   = parse(lastBlocks[lastBlocks.length - 1]);
+    const previous = parse(lastBlocks[lastBlocks.length - 2]);
+    let anomalies = [], score = 100, message = 'All systems operating within nominal parameters.';
+    if (!integrity) { anomalies.push({ type: 'CRITICAL', msg: 'Cryptographic Breach' }); score -= 50; message = 'Emergency: Blockchain integrity compromise detected.'; }
+    const tempChange = Math.abs((latest.temperature || 0) - (previous.temperature || 0));
+    if (tempChange > (previous.temperature || 0) * 0.1) { anomalies.push({ type: 'WARNING', msg: 'Thermal Spike' }); score -= 20; message = 'Temperature fluctuation detected. Possible environmental anomaly.'; }
+    if (integrity && anomalies.length === 0) message = latest.temperature > previous.temperature ? 'Blockchain growing steadily with an upward thermal trend.' : 'Network pulse is stable. Data throughput optimized.';
+    return { status: anomalies.length > 0 ? 'Anomaly Detected' : 'Stable', message, score: Math.max(score, 0), anomalies };
+  }, [mergedChain, integrity]);
+
+  // ── CHART DATA ──
+  const telemetryData = useMemo(() => {
+    const src = mergedChain.length ? mergedChain : null;
+    if (!src) {
+      return [
+        { label: '#0', temp: 22, humidity: 45, ts: Date.now() - 60000 },
+        { label: '#1', temp: 24, humidity: 47, ts: Date.now() },
+      ];
+    }
+    const working = src.filter(b => typeof b.index === 'number').slice(-30);
+    const data = working.map((b) => {
+      let d = b.data;
+      if (typeof d === 'string') { try { d = JSON.parse(d); } catch { d = {}; } }
+      d = d || {};
+      return {
+        label: `#${b.index}`,
+        temp: Number((d.temperature ?? (22 + Math.sin(b.index * 0.4) * 3)).toFixed(1)),
+        humidity: Number((d.humidity ?? (50 + Math.cos(b.index * 0.4) * 6)).toFixed(1)),
+        ts: Number(b.timestamp),
+      };
+    });
+    if (data.length === 1) data.push({ ...data[0], label: `#${working[0].index + 1}`, ts: data[0].ts + 1 });
+    return data;
+  }, [mergedChain, simTick]); // eslint-disable-line
+
+  // ── SIMULATION TICK ──
   useEffect(() => {
     if (isSimulating) {
-      const interval = setInterval(() => {
-        const events = [
-          `[INGEST] Block #${chainHeight + 1} SHA-256 Validated`,
-          `[SYNC] Node ${simNode} pushing telemetry packet`,
-          `[AUTH] Cryptographic Signature Verified`,
-          `[DB] MongoDB Write-stream: SUCCESS`,
-          `[NETWORK] Latency: 0.14ms Optimized`
-        ];
-        setSimLogs(prev => [events[Math.floor(Math.random() * events.length)], ...prev].slice(0, 5));
-      }, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [isSimulating, simNode, chainHeight]);
+      _simBlockCount = 0; // reset block counter each time sim starts
+      setSimBlocks([]);
+      setSimLogs([]);
 
-  // ✅ UPDATED: Simulation Toggle using Cloud API
-  const toggleSim = async () => {
+      simIntervalRef.current = setInterval(() => {
+        const baseIdx = chainHeight + simBlocksRef.current.length;
+        const newBlock = makeFakeBlock(simNode, baseIdx);
+
+        // Add virtual block
+        setSimBlocks(prev => [...prev.slice(-19), newBlock]);
+
+        // Add log entry
+        const fn = SIM_LOG_POOL[Math.floor(Math.random() * SIM_LOG_POOL.length)];
+        const logLine = fn(simNode, newBlock.index);
+        setSimLogs(prev => [logLine, ...prev].slice(0, 8));
+
+        // Force chart refresh
+        setSimTick(t => t + 1);
+      }, SIM_INTERVAL_MS);
+    } else {
+      clearInterval(simIntervalRef.current);
+      // Don't clear simBlocks immediately so chart doesn't flash
+    }
+    return () => clearInterval(simIntervalRef.current);
+  }, [isSimulating, simNode, chainHeight]); // eslint-disable-line
+
+  const toggleSim = () => {
     if (!isSimulating) {
-      try {
-        // ✅ Using API helper instead of direct localhost fetch
-        await API.post(`/trigger_simulated_node/${simNode}`);
-        setIsSimulating(true);
-      } catch (err) { 
-        console.error("Simulation Uplink Failed", err); 
-        alert("Node simulation failed. Is the Render backend awake?");
-      }
+      setIsSimulating(true);
     } else {
       setIsSimulating(false);
+      setSimBlocks([]);
+      setSimLogs([]);
+      _simBlockCount = 0;
     }
   };
 
@@ -105,298 +198,432 @@ const Dashboard = ({
   };
 
   const filteredChain = useMemo(() => {
-    return chain.filter(block => {
-      const search = searchTerm.toLowerCase();
-      return (
-        String(block.index).includes(search) ||
-        block.hash?.toLowerCase().includes(search) ||
-        String(block.nonce || '').includes(search)
-      );
-    });
-  }, [chain, searchTerm]);
+    const src = isSimulating ? mergedChain : normalizedChain;
+    if (!src) return [];
+    const s = searchTerm.toLowerCase();
+    return src.filter(b =>
+      String(b.index).includes(s) ||
+      b.hash?.toLowerCase().includes(s) ||
+      String(b.nonce || '').includes(s) ||
+      fmtTime(b.timestamp).includes(s)
+    );
+  }, [normalizedChain, mergedChain, isSimulating, searchTerm, simTick]); // eslint-disable-line
+
+  const lastTemp = telemetryData[telemetryData.length - 1]?.temp ?? '--';
+  const lastHum  = telemetryData[telemetryData.length - 1]?.humidity ?? '--';
 
   return (
-    <div className="p-6 md:p-10 space-y-12 bg-transparent min-h-screen transition-all duration-700 relative">
-      
-      {/* ── HEADER SECTION ── */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-slate-200 dark:border-white/5 pb-10">
+    <div className="page-wrapper space-y-6 custom-scrollbar">
+
+      {/* ── PAGE HEADER ── */}
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-6xl font-black tracking-tighter text-slate-900 dark:text-white leading-none">
-            Live <span className="text-blue-600">DashBoard</span>
-          </h1>
-          <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.5em] mt-4 italic flex items-center gap-3">
-            <Sparkles size={14} className="text-blue-500 animate-pulse" /> Global Neural Telemetry Stream
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3 bg-white/40 dark:bg-white/5 backdrop-blur-xl p-1.5 rounded-[22px] border border-white dark:border-white/10 shadow-sm">
-            <div className="flex flex-col items-end px-5 border-r border-slate-200 dark:border-white/10 font-mono">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Uplink Status</span>
-                <span className={`text-[11px] font-black uppercase mt-0.5 ${connError ? 'text-rose-500' : 'text-emerald-500 animate-pulse'}`}>
-                  {connError ? 'Disconnected' : 'Sync Active'}
-                </span>
-            </div>
-            <div className="p-2.5 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-500/20">
-                <RefreshCw size={18} className="animate-spin-slow" />
-            </div>
-        </div>
-      </div>
-
-      {/* ── STATS GRID ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Ledger Height" value={chainHeight} sub="Verified Blocks" color="blue" icon={<Database size={22} />} onClick={() => setActiveModal({title: 'Ledger Analytics', val: chainHeight, desc: 'Every block in SenseChain is linked via SHA-256 Fingerprints.'})} />
-        <StatCard title="Health Score" value={`${aiAnalysis.score}%`} sub="Node Stability" color={aiAnalysis.score > 80 ? "emerald" : "rose"} icon={<Heart size={22} />} pulse={aiAnalysis.score < 80} onClick={() => setActiveModal({title: 'Stability Index', val: `${aiAnalysis.score}%`, desc: 'Based on neural drift and cryptographic consistency.'})} />
-        <StatCard title="Security" value={integrity ? "Secure" : "Breach"} sub="Integrity Status" color={integrity ? "indigo" : "rose"} icon={integrity ? <ShieldCheck size={22} /> : <ShieldAlert size={22} />} onClick={() => setActiveModal({title: 'Forensic Audit', val: integrity ? 'Verified' : 'Breached', desc: 'SHA-256 Linkage verification across all neural clusters.'})} />
-        <StatCard title="Latency" value="0.14ms" sub="Node Uplink" color="blue" icon={<Zap size={22} />} onClick={() => setActiveModal({title: 'Node Latency', val: '0.14ms', desc: 'Real-time packet propagation between nodes.'})} />
-      </div>
-
-      {/* ── 🚀 SIMULATION CONTROL LAB ── */}
-      <div className="bg-white/50 dark:bg-[#0B1220]/60 backdrop-blur-3xl rounded-[40px] p-10 border border-white dark:border-white/5 shadow-2xl relative overflow-hidden group">
-        <div className="absolute -top-10 -right-10 p-10 opacity-5 rotate-12"><Share2 size={240}/></div>
-        <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative z-10">
-          <div className="flex items-center gap-8">
-             <div className="p-6 bg-slate-900 dark:bg-blue-600 text-white rounded-[24px] shadow-2xl shadow-blue-500/20"><Terminal size={32} /></div>
-             <div>
-                <h3 className="text-3xl font-black uppercase italic dark:text-white tracking-tighter leading-none">Hardware Simulation Lab</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em] mt-2 italic">Inject Virtual Neural Clusters</p>
-             </div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest chip-red">
+              <Sparkles size={9} /> Live Terminal
+            </span>
           </div>
-          <div className="flex items-center gap-4 bg-slate-100/50 dark:bg-black/40 p-3 rounded-3xl border border-white dark:border-white/5 backdrop-blur-md">
-             <div className="px-6 border-r border-slate-200 dark:border-white/10">
-                <span className="text-[8px] font-black text-slate-400 uppercase block mb-1 tracking-widest">Node ID</span>
-                <input 
-                  type="text" value={simNode} onChange={(e) => setSimNode(e.target.value)}
-                  className="bg-transparent border-none outline-none text-xs font-black text-blue-600 uppercase italic w-44"
-                />
-             </div>
-             <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={toggleSim}
-                className={`flex items-center gap-3 px-12 py-4 rounded-[18px] font-black text-[11px] uppercase tracking-widest transition-all ${isSimulating ? 'bg-rose-500 text-white shadow-xl shadow-rose-500/30 animate-pulse' : 'bg-blue-600 text-white shadow-xl shadow-blue-500/30'}`}
-             >
-                {isSimulating ? <Pause size={16} strokeWidth={3}/> : <Play size={16} strokeWidth={3}/>}
-                {isSimulating ? 'Stop Uplink' : 'Deploy Node'}
-             </motion.button>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight" style={{ fontFamily: 'Space Grotesk' }}>
+            Network <span className="bg-gradient-to-r from-red-600 to-rose-500 bg-clip-text text-transparent">Overview</span>
+          </h1>
+          <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">Real-time blockchain telemetry monitoring · <span className="font-mono text-xs text-red-400">{LOCAL_TZ}</span></p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border ${
+            connError
+              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'
+              : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+          }`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${connError ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'}`} />
+            {connError ? 'Backend Offline' : 'Synchronized'}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── STAT CARDS ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Ledger Height" value={chainHeight + (isSimulating ? simBlocks.length : 0)} suffix="blocks" icon={<Database size={17} />} color="red"
+          onClick={() => setActiveModal({ title: 'Ledger Height', val: chainHeight, desc: 'Total depth of the current cryptographic blockchain.' })} />
+        <StatCard title="Node Stability" value={`${aiAnalysis.score}%`} suffix="health" icon={<Heart size={17} />}
+          color={aiAnalysis.score > 80 ? 'green' : 'red'} pulse={aiAnalysis.score < 80}
+          onClick={() => setActiveModal({ title: 'Node Stability', val: `${aiAnalysis.score}%`, desc: 'Based on cryptographic linkage consistency and data throughput.' })} />
+        <StatCard title="Security Status" value={integrity ? 'Secure' : 'Breached'} suffix={integrity ? 'SHA-256 OK' : 'ALERT'}
+          icon={integrity ? <ShieldCheck size={17} /> : <ShieldAlert size={17} />} color={integrity ? 'indigo' : 'red'}
+          onClick={() => setActiveModal({ title: 'Security', val: integrity ? 'Secure' : 'Critical', desc: 'Real-time SHA-256 hash linkage monitoring.' })} />
+        <StatCard title="Packet Latency" value="0.14ms" suffix="interconnect" icon={<Zap size={17} />} color="violet"
+          onClick={() => setActiveModal({ title: 'Latency', val: '0.14ms', desc: 'Propagation delay across neural network clusters.' })} />
+      </div>
+
+      {/* ── SIMULATION LAB ── */}
+      <motion.div className="glass-card rounded-[22px] p-6 md:p-8 relative overflow-hidden" whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
+        <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-56 h-56 bg-red-500/5 dark:bg-red-500/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-2xl transition-all duration-500 ${isSimulating ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-500/15 text-red-600 dark:text-red-400'}`}>
+              <Terminal size={22} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold" style={{ fontFamily: 'Space Grotesk' }}>
+                Simulation Lab
+                {isSimulating && (
+                  <span className="ml-2 text-[9px] font-bold text-emerald-500 bg-emerald-500/12 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">
+                    VIRTUAL · Local
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-stone-400">Deploy virtual IoT cluster shards to the chain</p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+            <div className="glass-panel rounded-xl px-4 py-3 flex-1 lg:w-52">
+              <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mb-1">Node ID</p>
+              <input
+                type="text"
+                value={simNode}
+                onChange={(e) => setSimNode(e.target.value)}
+                disabled={isSimulating}
+                className="bg-transparent border-none outline-none text-sm font-semibold text-red-600 dark:text-red-400 w-full font-mono disabled:opacity-60"
+              />
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={toggleSim}
+              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-lg ${
+                isSimulating ? 'bg-stone-800 dark:bg-white/8 text-white' : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/25'
+              }`}
+            >
+              {isSimulating ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
+              {isSimulating ? 'Stop Node' : 'Start Node'}
+            </motion.button>
           </div>
         </div>
 
         <AnimatePresence>
           {isSimulating && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8 pt-12 border-t border-slate-200 dark:border-white/5">
-                <div className="lg:col-span-2 bg-slate-950/90 rounded-[32px] p-8 border border-blue-500/20 font-mono text-[11px] space-y-4 relative overflow-hidden shadow-inner">
-                   <div className="absolute top-0 right-0 p-8 opacity-5"><Cpu size={120}/></div>
-                   {simLogs.map((log, i) => (
-                    <motion.p initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} key={i} className="text-slate-400 flex gap-5 border-l-2 border-blue-600/30 pl-4">
-                        <span className="text-blue-500 font-black tabular-nums opacity-60">[{new Date().toLocaleTimeString()}]</span>
-                        <span className="italic tracking-tight">{log}</span>
-                    </motion.p>
-                  ))}
-                </div>
-                <div className="bg-white/40 dark:bg-white/5 rounded-[32px] p-10 flex flex-col items-center justify-center text-center border border-white/20 dark:border-white/5 shadow-xl">
-                  <div className="relative mb-6">
-                     <motion.div animate={{ scale: [1, 1.8], opacity: [0.3, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute inset-0 bg-emerald-500 rounded-full" />
-                     <div className="relative p-7 bg-emerald-500 text-white rounded-full shadow-[0_0_40px_rgba(16,185,129,0.4)]"><Radio size={36} /></div>
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-6 pt-6 border-t border-stone-200 dark:border-white/6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Terminal log */}
+                <div className="md:col-span-2 bg-stone-950 dark:bg-black/70 rounded-2xl p-5 terminal-scanline">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-[10px] text-stone-600 ml-2 font-mono">sensechain-node — virtual bash</span>
+                    <span className="ml-auto text-[9px] text-emerald-500 font-mono animate-pulse">● LIVE</span>
                   </div>
-                  <h4 className="text-sm font-black dark:text-white uppercase tracking-[0.3em]">{simNode}</h4>
-                  <p className="text-[10px] font-bold text-emerald-500 uppercase mt-2 animate-pulse tracking-widest">Broadcasting neural Packets...</p>
+                  <div className="space-y-2 max-h-36 overflow-hidden">
+                    {simLogs.length === 0 && (
+                      <p className="text-xs text-stone-600 font-mono animate-pulse">Initializing virtual node...</p>
+                    )}
+                    {simLogs.map((log, i) => (
+                      <motion.p
+                        key={`${log}-${i}`}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-xs text-stone-400 font-mono flex gap-3"
+                      >
+                        <span className="text-red-500 shrink-0">{nowTime()}</span>
+                        <span className="text-stone-300">{log}</span>
+                      </motion.p>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Node status widget */}
+                <div className="glass-panel rounded-2xl p-5 flex flex-col items-center justify-center text-center gap-3">
+                  <div className="relative mb-2">
+                    <motion.div
+                      animate={{ scale: [1, 1.8], opacity: [0.4, 0] }}
+                      transition={{ repeat: Infinity, duration: 1.8 }}
+                      className="absolute inset-0 bg-emerald-500 rounded-full"
+                    />
+                    <div className="relative w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center shadow-xl shadow-emerald-500/25">
+                      <Radio size={22} className="text-white" />
+                    </div>
+                  </div>
+                  <p className="text-sm font-bold font-mono">{simNode}</p>
+                  <p className="text-[10px] text-emerald-500 animate-pulse font-medium">Broadcasting...</p>
+                  <div className="w-full bg-white/5 rounded-full overflow-hidden h-1">
+                    <motion.div
+                      animate={{ x: ['-100%', '100%'] }}
+                      transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                      className="h-full w-1/2 bg-gradient-to-r from-transparent via-emerald-400 to-transparent"
+                    />
+                  </div>
+                  <p className="text-[9px] text-stone-500 font-mono">
+                    +{simBlocks.length} virtual block{simBlocks.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
 
-      {/* ── CHARTS SECTION ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white/60 dark:bg-[#0B1220]/60 backdrop-blur-3xl rounded-[40px] p-10 border border-white dark:border-white/5 shadow-2xl relative overflow-hidden">
-          <div className="flex items-center justify-between mb-12">
-             <div className="flex items-center gap-5">
-                <div className="p-4 bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 rounded-2xl"><Activity size={26}/></div>
-                <h3 className="text-xl font-black uppercase italic dark:text-white tracking-tighter">Telemetry Convergence</h3>
-             </div>
-             <div className="flex gap-4">
-                <div className="flex items-center gap-3 px-5 py-2.5 bg-rose-50 dark:bg-rose-600/10 rounded-2xl text-rose-600 text-[10px] font-black uppercase italic border border-rose-100 dark:border-rose-600/20">
-                    <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]" /> Temp
-                </div>
-                <div className="flex items-center gap-3 px-5 py-2.5 bg-sky-50 dark:bg-sky-600/10 rounded-2xl text-sky-600 text-[10px] font-black uppercase italic border border-sky-100 dark:border-sky-600/20">
-                    <div className="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_8px_#0ea5e9]" /> Humid
-                </div>
-             </div>
+      {/* ── CHART + AI PANEL ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Chart */}
+        <div className="lg:col-span-2 glass-card rounded-[22px] p-6 md:p-8 flex flex-col">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400 rounded-xl">
+                <Activity size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Telemetry Stream</h3>
+                <p className="text-[10px] text-stone-400">
+                  {isSimulating ? '⚡ Virtual simulation active · ' : 'Live sensor data · '}
+                  {telemetryData.length} data points
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <LegendDot color="rose" label="Temp" value={`${lastTemp}°C`} />
+              <LegendDot color="sky"  label="Humidity" value={`${lastHum}%`} />
+            </div>
           </div>
-          <div className="h-[420px] w-full">
+          <div className="h-64 sm:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={telemetryData}>
+              <AreaChart data={telemetryData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="gradTemp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4}/><stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/></linearGradient>
-                  <linearGradient id="gradHum" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.4}/><stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/></linearGradient>
+                  <linearGradient id="gTemp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gHum" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#0ea5e9" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                  </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.05} />
-                <XAxis dataKey="index" hide />
-                <YAxis fontSize={10} tick={{fontWeight: 'bold', fill: '#94a3b8'}} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="temp" stroke="#f43f5e" strokeWidth={5} fill="url(#gradTemp)" isAnimationActive={false} />
-                <Area type="monotone" dataKey="humidity" stroke="#0ea5e9" strokeWidth={5} fill="url(#gradHum)" isAnimationActive={false} />
+                <CartesianGrid strokeDasharray="5 5" vertical={false} strokeOpacity={0.05} />
+                <XAxis dataKey="label" tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#9ca3af' }} tickLine={false} axisLine={false} domain={['dataMin - 3', 'dataMax + 3']} />
+                <Tooltip content={<ChartTooltip />} />
+                <Area type="monotone" dataKey="temp"     stroke="#ef4444" strokeWidth={2} fill="url(#gTemp)" isAnimationActive={false} name="Temperature" />
+                <Area type="monotone" dataKey="humidity" stroke="#0ea5e9" strokeWidth={2} fill="url(#gHum)"  isAnimationActive={false} name="Humidity" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* AI SIDEBAR */}
-        <div className="bg-slate-900 dark:bg-black rounded-[40px] p-12 text-white shadow-2xl relative overflow-hidden group border border-white/5 flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
-          <div className="relative z-10 space-y-12">
-            <div className="flex items-center gap-6">
-              <div className="p-5 bg-white/5 rounded-[24px] border border-white/10 text-blue-400 shadow-inner"><Brain size={36} /></div>
-              <h3 className="text-xs font-black uppercase tracking-[0.6em] text-blue-300">Neural Brain</h3>
-            </div>
-            <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-8">
-              <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-500 tracking-widest">
-                  <p>Neural Load Status</p>
-                  <div className="flex items-center gap-2 animate-pulse"><Flame size={14} className="text-rose-500"/><span className="text-rose-500">Live</span></div>
+        {/* AI Sidebar */}
+        <div className="glass-card rounded-[22px] p-6 relative overflow-hidden flex flex-col justify-between bg-stone-950 dark:bg-black/85">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-red-600/8 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-rose-600/6 rounded-full blur-2xl" />
+          </div>
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-white/6 border border-white/10 rounded-xl text-red-400"><Cpu size={18} /></div>
+              <div>
+                <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest">Neural Core</p>
+                <p className="text-sm font-bold text-white" style={{ fontFamily: 'Space Grotesk' }}>AI Analysis</p>
               </div>
-              <div className="grid grid-cols-10 gap-2.5">
-                {Array.from({length: 40}).map((_, i) => (
-                  <div key={i} className={`h-4 rounded-[4px] transition-all duration-1000 ${integrity ? 'bg-emerald-500/20' : (i > 32 ? 'bg-rose-500 shadow-[0_0_12px_#f43f5e] animate-pulse' : 'bg-emerald-500/10 opacity-30')}`} />
+            </div>
+            {/* Pulse Grid */}
+            <div className="bg-white/4 border border-white/6 rounded-xl p-4">
+              <div className="flex justify-between items-center text-[9px] font-semibold text-stone-600 mb-3 uppercase tracking-wide">
+                <span>Neural Pulse</span>
+                <div className="flex items-center gap-1.5 text-red-400"><Flame size={11} /><span className="animate-pulse">Live</span></div>
+              </div>
+              <div className="grid grid-cols-10 gap-1">
+                {Array.from({ length: 40 }).map((_, i) => (
+                  <div key={i} className={`h-2 rounded-full transition-all duration-500 ${
+                    integrity ? 'bg-emerald-500/30' : (i > 32 ? 'bg-red-500 animate-pulse' : 'bg-white/6')
+                  }`} />
                 ))}
               </div>
             </div>
-            <div className="p-10 bg-white/[0.03] border border-white/5 rounded-[32px] space-y-6 text-center shadow-inner">
-                <div className="flex items-center justify-center gap-3 text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                  <div className={`w-2.5 h-2.5 rounded-full ${aiAnalysis.status === 'Stable' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-rose-500 animate-ping shadow-[0_0_8px_#f43f5e]'}`} /> 
-                  Neural Inference
-                </div>
-                <p className="text-2xl font-black italic text-slate-100 leading-tight uppercase tracking-tighter">"{aiAnalysis.message}"</p>
+            {/* AI Message */}
+            <div className="bg-red-600/6 border border-red-500/12 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-[9px] font-bold text-red-400 uppercase tracking-widest mb-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${aiAnalysis.status === 'Stable' ? 'bg-emerald-500' : 'bg-red-500 animate-ping'}`} />
+                AI Inference
+              </div>
+              <p className="text-sm font-medium text-stone-200 leading-relaxed">&ldquo;{aiAnalysis.message}&rdquo;</p>
             </div>
           </div>
-          <div className="pt-10">
-              <div className="flex justify-between text-[10px] font-black uppercase text-slate-500 mb-4 tracking-[0.4em]"><span>Node Load</span><span className="text-blue-400">Optimized</span></div>
-              <div className="w-full h-2.5 bg-white/10 rounded-full overflow-hidden shadow-inner">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${aiAnalysis.score}%` }} className="h-full bg-blue-600 shadow-[0_0_20px_#2563eb] rounded-full" />
-              </div>
+          {/* Progress */}
+          <div className="relative z-10 pt-4 mt-4 border-t border-white/6">
+            <div className="flex justify-between text-[9px] font-bold text-stone-600 mb-2 uppercase tracking-wide">
+              <span>Node Throughput</span>
+              <span className="text-red-400">{aiAnalysis.score}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-white/6 rounded-full overflow-hidden">
+              <motion.div initial={{ width: 0 }} animate={{ width: `${aiAnalysis.score}%` }}
+                className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── VERIFIED LEDGER TABLE ── */}
-      <div className="bg-white/60 dark:bg-[#0B1220]/60 backdrop-blur-3xl rounded-[40px] border border-white dark:border-white/5 shadow-2xl overflow-hidden mb-10">
-          <div className="p-12 border-b border-slate-200 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-10">
-            <div className="flex items-center gap-7">
-                <div className="p-6 bg-slate-900 dark:bg-blue-600 text-white rounded-[24px] shadow-2xl"><Globe size={32}/></div>
-                <div>
-                  <h3 className="text-3xl font-black uppercase italic dark:text-white tracking-tighter leading-tight">Verified Ledger</h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1 italic">Cryptographic SHA-256 Forensic Stream</p>
-                </div>
-            </div>
-            <div className="relative w-full md:w-[550px] group">
-              <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={24} />
-              <input type="text" placeholder="QUERY LEDGER INDEX OR FINGERPRINT..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-20 pr-10 py-7 bg-slate-100/50 dark:bg-black/40 border-none rounded-[30px] text-xs font-black outline-none dark:text-white uppercase italic tracking-widest shadow-inner focus:ring-2 ring-blue-500/20 transition-all" />
+      {/* ── LEDGER TABLE ── */}
+      <div className="glass-card rounded-[22px] overflow-hidden">
+        <div className="p-6 md:p-8 border-b border-stone-100 dark:border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400 rounded-xl"><Globe size={18} /></div>
+            <div>
+              <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>
+                Verified Ledger
+                {isSimulating && <span className="ml-2 text-[9px] text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">+Virtual</span>}
+              </h3>
+              <p className="text-[10px] text-stone-400">Forensic SHA-256 linkage stream · {filteredChain.length} blocks · <span className="font-mono">{LOCAL_TZ}</span></p>
             </div>
           </div>
-          <div className="overflow-x-auto max-h-[700px] custom-scrollbar">
-            <table className="w-full text-left">
-                <thead className="bg-slate-50/50 dark:bg-black/20 sticky top-0 backdrop-blur-md z-10 border-b border-slate-200 dark:border-white/5">
-                  <tr>
-                    <th className="px-12 py-10 text-[10px] uppercase font-black text-slate-400 tracking-[0.4em]">Block Index</th>
-                    <th className="px-8 py-10 text-[10px] uppercase font-black text-slate-400 tracking-[0.4em]">Proof (Nonce)</th>
-                    <th className="px-12 py-10 text-[10px] uppercase font-black text-slate-400 tracking-[0.4em]">Fingerprint (SHA-256)</th>
-                    <th className="px-12 py-10 text-right text-[10px] uppercase font-black text-slate-400 tracking-[0.4em]">Synched At</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-white/5">
-                  {filteredChain.slice().reverse().map(block => (
-                    <tr key={block.index} className="hover:bg-blue-600/[0.03] transition-all group cursor-default">
-                       <td className="px-12 py-12 font-black text-blue-600 italic text-4xl tracking-tighter">#{block.index}</td>
-                       <td className="px-8 py-12">
-                          <span className="px-6 py-2.5 bg-blue-50 dark:bg-blue-600/10 text-blue-600 rounded-[12px] text-[11px] font-black border border-blue-100 dark:border-blue-600/20 tabular-nums shadow-sm">
-                            P-{block.nonce || '0'}
-                          </span>
-                       </td>
-                       <td className="px-12 py-12">
-                          <div className="flex items-center gap-5 group">
-                             <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400 bg-white/50 dark:bg-white/5 px-6 py-4 rounded-[18px] border border-slate-200 dark:border-white/5 truncate max-w-[420px] shadow-sm tracking-tight">{block.hash}</span>
-                             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleCopy(block.hash)} className="opacity-0 group-hover:opacity-100 p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-white/10 transition-all">
-                                {copiedHash === block.hash ? <Check size={20} className="text-emerald-500" /> : <Copy size={20} className="text-slate-400" />}
-                             </motion.button>
-                          </div>
-                       </td>
-                       <td className="px-12 py-12 text-right font-black text-[11px] text-slate-400 tabular-nums">
-                          <div className="flex flex-col gap-3 uppercase italic tracking-tighter">
-                             <span className="text-slate-900 dark:text-slate-200">{new Date(Number(block.timestamp) * (block.timestamp < 1e12 ? 1000 : 1)).toLocaleTimeString([], {hour12: false})}</span>
-                             <span className={`px-3 py-1 rounded-full text-[8px] self-end border ${integrity ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/5' : 'text-rose-500 border-rose-500/30 bg-rose-500/5 shadow-[0_0_10px_#f43f5e]'}`}>
-                               {integrity ? 'Verified Secure' : 'Integrity Breach'}
-                             </span>
-                          </div>
-                       </td>
-                    </tr>
-                  ))}
-                </tbody>
-            </table>
+          <div className="relative w-full md:w-64">
+            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
+            <input type="text" placeholder="Search block, hash, nonce..." value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)} className="glass-input pl-10 text-sm py-2.5" />
           </div>
+        </div>
+
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left min-w-[600px]">
+            <thead>
+              <tr className="border-b border-stone-100 dark:border-white/5">
+                {['Index', 'Proof (Nonce)', 'SHA-256 Hash', 'Timestamp'].map((h, i) => (
+                  <th key={h} className={`px-6 py-3 text-[9px] font-bold text-stone-400 uppercase tracking-widest ${i === 3 ? 'text-right' : ''}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-50 dark:divide-white/3">
+              {filteredChain.slice().reverse().map((block, rowIdx) => (
+                <motion.tr layout key={block.hash || `r-${block.index}-${rowIdx}`}
+                  className={`group hover:bg-stone-50 dark:hover:bg-white/3 transition-colors ${block._virtual ? 'opacity-90' : ''}`}>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-bold text-red-600 dark:text-red-400 font-mono">#{block.index}</span>
+                      {block._virtual && (
+                        <span className="text-[8px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider">SIM</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="px-2.5 py-1 rounded-full bg-stone-100 dark:bg-white/6 text-stone-700 dark:text-stone-300 text-[10px] font-bold border border-stone-200 dark:border-white/10 font-mono">
+                      {block.nonce ?? '0'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-white/5 px-3 py-1.5 rounded-lg border border-stone-150 dark:border-white/6 truncate max-w-[240px] block">
+                        {block.hash}
+                      </span>
+                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                        onClick={() => handleCopy(block.hash)}
+                        className="p-1.5 rounded-lg bg-white dark:bg-white/6 border border-stone-200 dark:border-white/8 text-stone-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                        {copiedHash === block.hash ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                      </motion.button>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <p className="text-sm font-mono font-semibold tabular-nums">{fmtTime(block.timestamp)}</p>
+                    <p className="text-[9px] text-stone-400 font-mono mt-0.5">{fmtDate(block.timestamp)}</p>
+                    <p className={`text-[9px] font-bold uppercase tracking-wide mt-0.5 ${
+                      block._virtual ? 'text-emerald-500' : (integrity ? 'text-emerald-500' : 'text-red-500')
+                    }`}>
+                      {block._virtual ? '⚡ Virtual' : (integrity ? '✓ Verified' : '✗ Broken')}
+                    </p>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredChain.length === 0 && (
+            <div className="py-16 text-center text-stone-400">
+              <Database size={30} className="mx-auto mb-3 opacity-25" />
+              <p className="text-sm font-medium">No blocks found{searchTerm ? ` for "${searchTerm}"` : ''}</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── DETAIL MODAL ── */}
-      <AnimatePresence>{activeModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-[#020617]/80 backdrop-blur-xl" onClick={() => setActiveModal(null)}>
-            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 30 }} className="bg-white dark:bg-[#0B1220] w-full max-w-lg rounded-[50px] p-16 shadow-[0_40px_100px_rgba(0,0,0,0.4)] border border-white dark:border-white/10 relative overflow-hidden" onClick={e => e.stopPropagation()}>
-              <button onClick={() => setActiveModal(null)} className="absolute top-10 right-10 p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors text-slate-400"><X size={32} /></button>
-              <div className="flex items-center gap-7 mb-10">
-                <div className="p-6 bg-blue-50 dark:bg-blue-600/20 rounded-[28px] text-blue-600 shadow-inner"><Info size={44} /></div>
-                <h2 className="text-4xl font-black uppercase italic dark:text-white leading-none tracking-tighter">{activeModal.title}</h2>
+      {/* ── MODAL ── */}
+      <AnimatePresence>
+        {activeModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setActiveModal(null)}
+            className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-stone-900/70 dark:bg-black/80 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.94, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.94, y: 16 }}
+              onClick={e => e.stopPropagation()} className="glass-card rounded-[24px] p-8 md:p-10 w-full max-w-md relative">
+              <button onClick={() => setActiveModal(null)} className="absolute top-5 right-5 p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/6 text-stone-400 transition-colors">
+                <X size={18} />
+              </button>
+              <div className="flex items-center gap-4 mb-5">
+                <div className="p-3 bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400 rounded-2xl"><Info size={22} /></div>
+                <h2 className="text-lg font-bold" style={{ fontFamily: 'Space Grotesk' }}>{activeModal.title}</h2>
               </div>
-              <p className="text-slate-500 dark:text-slate-400 font-bold mb-12 text-xl italic uppercase tracking-tight leading-relaxed">{activeModal.desc}</p>
-              <div className="bg-slate-100/50 dark:bg-black/60 rounded-[40px] text-center p-16 border border-white dark:border-white/5 shadow-inner">
-                <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.5em] mb-4 block">Neural Snapshot</span>
-                <p className="text-8xl font-black text-blue-600 italic tracking-tighter tabular-nums">{activeModal.val}</p>
+              <p className="text-sm text-stone-500 dark:text-stone-400 mb-6 leading-relaxed">{activeModal.desc}</p>
+              <div className="text-center bg-stone-50 dark:bg-white/4 border border-stone-100 dark:border-white/6 rounded-2xl py-10 px-6">
+                <span className="text-[9px] font-bold text-red-500 uppercase tracking-widest block mb-3">Current Value</span>
+                <p className="text-5xl font-bold font-mono tabular-nums">{activeModal.val}</p>
               </div>
             </motion.div>
           </motion.div>
-      )}</AnimatePresence>
+        )}
+      </AnimatePresence>
+
+      <p className="text-center text-[10px] text-stone-400 dark:text-stone-700 pb-4 uppercase tracking-widest font-medium">
+        SenseChain Neural Infrastructure · SHA-256 Layer-1 Blockchain
+      </p>
     </div>
   );
 };
 
-// --- STAT CARD COMPONENT ---
-const StatCard = ({ title, value, sub, icon, color, pulse, onClick }) => {
-  const themes = { 
-    blue: "border-blue-500 text-blue-600 bg-blue-50/20 shadow-blue-500/5", 
-    emerald: "border-emerald-500 text-emerald-600 bg-emerald-50/20 shadow-emerald-500/5", 
-    rose: "border-rose-500 text-rose-600 bg-rose-50/20 shadow-rose-500/5", 
-    indigo: "border-indigo-500 text-indigo-600 bg-indigo-50/20 shadow-indigo-500/5" 
-  };
+// ── SUB COMPONENTS ──
+
+const StatCard = ({ title, value, suffix, icon, color, pulse, onClick }) => {
+  const c = {
+    red:    { bg: 'bg-red-100 dark:bg-red-500/12',     text: 'text-red-600 dark:text-red-400',     val: 'text-red-600 dark:text-red-400' },
+    green:  { bg: 'bg-emerald-100 dark:bg-emerald-500/12', text: 'text-emerald-600 dark:text-emerald-400', val: 'text-emerald-600 dark:text-emerald-400' },
+    indigo: { bg: 'bg-indigo-100 dark:bg-indigo-500/12', text: 'text-indigo-600 dark:text-indigo-400', val: 'text-indigo-600 dark:text-indigo-400' },
+    violet: { bg: 'bg-violet-100 dark:bg-violet-500/12', text: 'text-violet-600 dark:text-violet-400', val: 'text-violet-600 dark:text-violet-400' },
+  }[color] || { bg: 'bg-red-100 dark:bg-red-500/12', text: 'text-red-600 dark:text-red-400', val: 'text-red-600 dark:text-red-400' };
+
   return (
-    <motion.div 
-      whileHover={{ y: -8, scale: 1.02 }}
-      onClick={onClick} 
-      className={`p-10 rounded-[35px] border-l-[12px] bg-white/70 dark:bg-[#0B1220]/70 backdrop-blur-xl border border-slate-200 dark:border-white/5 transition-all cursor-pointer group relative overflow-hidden shadow-2xl ${themes[color]} ${pulse ? 'animate-pulse' : ''}`}
-    >
-      <div className="flex justify-between items-start mb-8">
-        <div className="p-5 bg-white dark:bg-white/5 rounded-[20px] shadow-sm border border-slate-100 dark:border-white/5 group-hover:scale-110 transition-transform duration-500">{icon}</div>
-        <div className="text-right">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 italic">{title}</p>
-          <h3 className="text-5xl font-black dark:text-white italic tracking-tighter leading-none tabular-nums">{value}</h3>
-        </div>
+    <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} onClick={onClick}
+      className={`stat-card border cursor-pointer ${pulse ? 'breach-glow' : ''}`}>
+      <div className="flex items-start justify-between mb-4">
+        <div className={`p-2.5 rounded-xl ${c.bg} ${c.text}`}>{icon}</div>
+        <ChevronRight size={14} className="text-stone-300 dark:text-stone-700 mt-0.5" />
       </div>
-      <div className="flex items-center justify-between pt-6 border-t border-slate-100 dark:border-white/5">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{sub}</p>
-        <ChevronRight size={18} className="text-slate-300 group-hover:text-blue-500 transition-all" />
-      </div>
+      <motion.p key={String(value)} initial={{ scale: 1.08, opacity: 0.6 }} animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        className={`text-2xl md:text-3xl font-bold tabular-nums ${c.val}`} style={{ fontFamily: 'Space Grotesk' }}>
+        {value}
+      </motion.p>
+      <p className="text-xs font-semibold mt-1">{title}</p>
+      <p className="text-[10px] text-stone-400 mt-0.5 uppercase tracking-wide">{suffix}</p>
     </motion.div>
   );
 };
 
-const CustomTooltip = ({ active, payload }) => {
-  if (!active || !payload) return null;
+const LegendDot = ({ color, label, value }) => (
+  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/60 dark:bg-white/4 border border-stone-200 dark:border-white/6 rounded-xl">
+    <div className={`w-1.5 h-1.5 rounded-full ${color === 'rose' ? 'bg-red-500' : 'bg-sky-500'}`} />
+    <span className="text-[9px] font-semibold text-stone-500 uppercase">{label}</span>
+    <span className="text-[10px] font-bold font-mono">{value}</span>
+  </div>
+);
+
+const ChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
   return (
-    <div className="p-7 bg-[#0B1220]/95 backdrop-blur-3xl text-white rounded-[30px] border border-white/10 space-y-6 shadow-[0_20px_50px_rgba(0,0,0,0.3)]">
-      <p className="text-[11px] font-black text-blue-400 uppercase tracking-[0.4em] border-b border-white/10 pb-3 flex items-center gap-3"><Activity size={14} /> Neural Data Link</p>
-      <div className="space-y-5">
-        <div className="flex items-center justify-between gap-16">
-          <div className="flex items-center gap-3"><Thermometer size={20} className="text-rose-500" /><span className="text-[11px] font-black text-slate-400 uppercase italic">Thermal</span></div>
-          <span className="text-xl font-black text-rose-500 tabular-nums">{payload[0]?.value}°C</span>
+    <div className="glass-card rounded-xl p-4 shadow-xl border border-stone-100 dark:border-white/8 min-w-[150px]">
+      <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-2">{label} · Sensor Data</p>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-1.5"><Thermometer size={12} className="text-red-500" /><span className="text-xs text-stone-500">Thermal</span></div>
+          <span className="text-sm font-bold text-red-500 font-mono">{payload[0]?.value}°C</span>
         </div>
-        <div className="flex items-center justify-between gap-16">
-          <div className="flex items-center gap-3"><Droplets size={20} className="text-sky-500" /><span className="text-[11px] font-black text-slate-400 uppercase italic">Humidity</span></div>
-          <span className="text-xl font-black text-sky-500 tabular-nums">{payload[1]?.value}%</span>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-1.5"><Droplets size={12} className="text-sky-500" /><span className="text-xs text-stone-500">Humidity</span></div>
+          <span className="text-sm font-bold text-sky-500 font-mono">{payload[1]?.value}%</span>
         </div>
       </div>
     </div>

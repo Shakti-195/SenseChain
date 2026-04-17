@@ -8,7 +8,11 @@ import io
 import csv
 from collections import deque
 from difflib import get_close_matches
-from serpapi import GoogleSearch 
+
+try:
+    from serpapi import GoogleSearch
+except Exception:
+    GoogleSearch = None
 
 # ================== 1. DYNAMIC PATH RESOLUTION (Render/Cloud Fix) ==================
 def get_resource_path(filename):
@@ -80,6 +84,9 @@ except Exception as e:
 
 # ================== 6. SEARCH ENGINE ==================
 def search_google_results(query):
+    if GoogleSearch is None:
+        return "❌ Search module unavailable. Install serpapi package or check your API provider."
+
     try:
         params = {
             "q": query,

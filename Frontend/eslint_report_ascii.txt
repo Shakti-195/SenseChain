@@ -1,0 +1,125 @@
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\App.jsx
+  40:18  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  38 |     integrity: true,
+  39 |     length: 0,
+> 40 |     lastUpdated: Date.now(), 
+     |                  ^^^^^^^^^^ Cannot call impure function
+  41 |     connError: null,
+  42 |     activeNodes: {} 
+  43 |   });  react-hooks/purity
+  62:14  error  'error' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          no-unused-vars
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\components\AIAssistant.jsx
+   84:29  warning  The ref value 'synthRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'synthRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+   93:16  warning  The ref value 'synthRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'synthRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+  105:15  error    '_' is defined but never used                                                                                                                                                                                                                                    no-unused-vars
+  105:18  error    Empty block statement                                                                                                                                                                                                                                            no-empty
+  154:36  error    '_' is defined but never used                                                                                                                                                                                                                                    no-unused-vars
+  154:39  error    Empty block statement                                                                                                                                                                                                                                            no-empty
+  158:32  error    'e' is defined but never used                                                                                                                                                                                                                                    no-unused-vars
+  158:35  error    Empty block statement                                                                                                                                                                                                                                            no-empty
+  159:6   warning  React Hook useCallback has a missing dependency: 'sendVoiceMessage'. Either include it or remove the dependency array                                                                                                                                            react-hooks/exhaustive-deps
+  177:9   error    'index' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                            no-unused-vars
+  194:6   warning  React Hook useCallback has a missing dependency: 'returnToListening'. Either include it or remove the dependency array                                                                                                                                           react-hooks/exhaustive-deps
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\components\Header.jsx
+  15:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     no-unused-vars
+  17:54  error  'title' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 no-unused-vars
+  55:14  error  'e' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     no-unused-vars
+  82:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  80 |   useEffect(() => {
+  81 |     if (prevIntegrity.current === true && integrity === false) {
+> 82 |       addNotif('error', 'Security Breach', 'Unauthorized hash linkage detected!');
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  83 |     } else if (prevIntegrity.current === false && integrity === true) {
+  84 |       addNotif('success', 'System Healed', 'Node integrity successfully restored.');
+  85 |     }  react-hooks/set-state-in-effect
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\context\AuthContext.jsx
+  85:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\hooks\useBlockchain.js
+   1:41  error  'useEffect' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  51:16  error  'intErr' is defined but never used                                                no-unused-vars
+  56:14  error  'err' is defined but never used                                                   no-unused-vars
+  65:7   error  Unsafe usage of ReturnStatement                                                   no-unsafe-finally
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\hooks\useWebsocket.js
+  60:6   warning  React Hook useEffect has a missing dependency: 'connect'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                      react-hooks/exhaustive-deps
+  62:10  error    Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  60 |   }, []);
+  61 |
+> 62 |   return ws.current;
+     |          ^^^^^^^^^^ Cannot access ref value during render
+  63 | };
+  64 |
+  65 | export default useWebsocket;  react-hooks/refs
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\About.jsx
+  2:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\Analytics.jsx
+  30:16  error  '_' is defined but never used                 no-unused-vars
+  56:9   error  Unexpected lexical declaration in case block  no-case-declarations
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\Dashboard.jsx
+  10:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  16:3   error  'lastUpdated' is assigned a value but never used                               no-unused-vars
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\ForgotPassword.jsx
+   3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u             no-unused-vars
+  57:19  error  'response' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\Login.jsx
+  3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\NodeSettings.jsx
+   7:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  27:16  error  'err' is defined but never used                                                no-unused-vars
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\OtpVerification.jsx
+   3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u           no-unused-vars
+  18:12  error  'isDark' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\Security.jsx
+   8:10  error    'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                   no-unused-vars
+  12:39  error    'chain' is assigned a value but never used                                                                      no-unused-vars
+  27:6   warning  React Hook useEffect has a missing dependency: 'tamperIndex'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  71:14  error    'err' is defined but never used                                                                                 no-unused-vars
+  94:14  error    'err' is defined but never used                                                                                 no-unused-vars
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\Signup.jsx
+  3:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\thaku\OneDrive\Desktop\SENSECHAIN\Frontend\src\pages\UplinkTerminal.jsx
+    7:10   error    'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     no-unused-vars
+   44:6    warning  React Hook useEffect has missing dependencies: 'handshakeSteps.length', 'onClose', and 'onComplete'. Either include them or remove the dependency array. If 'onComplete' changes too often, find the parent component that defines it and wrap that definition in useCallback                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     react-hooks/exhaustive-deps
+   76:45   error    'connError' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             no-unused-vars
+  183:112  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  181 |                      <div className="text-right">
+  182 |                         <span className="px-4 py-1.5 bg-emerald-500 text-white text-[9px] font-black uppercase rounded-full shadow-lg shadow-emerald-500/20">Secured</span>
+> 183 |                         <p className="text-[8px] text-slate-400 font-bold uppercase mt-2">Latency: {Math.floor(Math.random() * 5) + 1}ms</p>
+      |                                                                                                                ^^^^^^^^^^^^^ Cannot call impure function
+  184 |                      </div>
+  185 |                   </motion.div>
+  186 |                 )) : (  react-hooks/purity
+
+??? 46 problems (39 errors, 7 warnings)
+

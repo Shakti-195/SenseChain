@@ -35,7 +35,7 @@ const OtpVerification = () => {
         setError('');
         try {
             // ✅ FIXED: Using Render URL instead of Localhost
-            const res = await fetch('https://sensechain.onrender.com/auth/verify-otp', {
+            const res = await fetch((window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1" ? "https://sensechain.onrender.com" : "http://127.0.0.1:8000") + '/auth/verify-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, otp })
@@ -62,7 +62,7 @@ const OtpVerification = () => {
         setError('');
         try {
             // ✅ FIXED: Using Render URL instead of Localhost
-            const res = await fetch('https://sensechain.onrender.com/auth/send-otp', {
+            const res = await fetch((window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1" ? "https://sensechain.onrender.com" : "http://127.0.0.1:8000") + '/auth/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
@@ -96,7 +96,7 @@ const OtpVerification = () => {
                         {!isSuccess ? (
                             <motion.div key="otp-input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                 <div className="flex flex-col items-center mb-10">
-                                    <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-500/20 mb-4 text-white">
+                                    <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl shadow-indigo-500/20 mb-4 text-slate-900 dark:text-white">
                                         <Fingerprint size={32} />
                                     </div>
                                     <h1 className="text-3xl font-black tracking-tighter dark:text-white uppercase italic">Verify Node</h1>
@@ -128,7 +128,7 @@ const OtpVerification = () => {
                                     <button 
                                         type="submit" 
                                         disabled={loading} 
-                                        className="w-full py-4 bg-gradient-to-r from-blue-600 to-black text-white rounded-2xl font-black uppercase italic tracking-widest text-xs shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                                        className="w-full py-4 bg-gradient-to-r from-blue-600 to-black text-slate-900 dark:text-white rounded-2xl font-black uppercase italic tracking-widest text-xs shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                                     >
                                         {loading ? <Loader2 className="animate-spin" size={18} /> : <>Authorize Identity <ArrowRight size={16} /></>}
                                     </button>
@@ -149,7 +149,7 @@ const OtpVerification = () => {
                         ) : (
                             <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-10 space-y-6">
                                 <div className="w-24 h-24 bg-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/30">
-                                    <ShieldCheck size={48} className="text-white" />
+                                    <ShieldCheck size={48} className="text-slate-900 dark:text-white" />
                                 </div>
                                 <h2 className="text-3xl font-black italic tracking-tighter uppercase dark:text-white">Authorized</h2>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Syncing neural link...</p>
