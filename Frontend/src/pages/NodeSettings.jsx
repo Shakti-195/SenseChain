@@ -47,22 +47,25 @@ const NodeSettings = ({ chainHeight = 0, integrity = true, lastUpdated = '' }) =
       try {
         const res = await api.get('/difficulty');
         if (res.data?.difficulty !== undefined) setDifficulty(res.data.difficulty);
-      } catch { /* backend may be offline — proceed with default */ }
+      } catch { 
+        // Backend offline — load from localStorage
+        const stored = localStorage.getItem('sc_difficulty');
+        if (stored) setDifficulty(parseInt(stored));
+      }
     })();
   }, []);
 
-  // ── Save difficulty ──
-  const handleSave = async () => {
-    setIsSaving(true);
-    setSaveMsg(null);
-    try {
-      await api.post('/update_config', { difficulty });
-      setSaveMsg({ type: 'ok', text: `Consensus target updated to ${difficulty} leading zeros.` });
-    } catch {
-      setSaveMsg({ type: 'err', text: 'Backend unreachable. Setting saved locally.' });
-    }
-    setIsSaving(false);
-    setTimeout(() => setSaveMsg(null), 4000);
+  // ── Save difficulty: localStorage first (instant), backend in background ──
+  const handleSave = () => {
+    // 1. Save locally immediately
+    localStorage.setItem('sc_difficulty', String(difficulty));
+    setSaveMsg({ type: 'ok', text: `Consensus target set to ${difficulty} leading zeros. Configuration saved.` });
+    setTimeout(() => setSaveMsg(null), 3500);
+
+    // 2. Try backend silently in background (no blocking, no error shown to user)
+    api.post('/update_config', { difficulty }).catch(() => {
+      // Silently ignored — localStorage is the source of truth for offline/demo mode
+    });
   };
 
   // ── Reset ledger ──
