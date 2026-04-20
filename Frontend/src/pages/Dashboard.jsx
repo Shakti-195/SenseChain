@@ -230,13 +230,25 @@ const Dashboard = ({
             Real-time blockchain telemetry · <span className="font-mono text-xs text-red-400">{LOCAL_TZ}</span>
           </p>
         </div>
+        {/* Connection status — show 'Simulation Mode' not 'Backend Offline' when no real HW */}
         <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border ${
-          connError
-            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'
+          isSimulating
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+            : connError
+            ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400'
             : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
         }`}>
-          <div className={`w-1.5 h-1.5 rounded-full ${connError ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'}`} />
-          {connError ? 'Backend Offline' : 'Synchronized'}
+          <div className={`w-1.5 h-1.5 rounded-full ${
+            isSimulating ? 'bg-emerald-500 animate-pulse' :
+            connError ? 'bg-amber-500 animate-pulse' :
+            'bg-emerald-500 animate-pulse'
+          }`} />
+          {isSimulating
+            ? `Simulation Mode · ${liveNodes.length} node${liveNodes.length !== 1 ? 's' : ''} live`
+            : connError
+            ? 'Awaiting Backend'
+            : 'Synchronized'
+          }
         </div>
       </motion.div>
 
@@ -257,8 +269,16 @@ const Dashboard = ({
           pulse={isBreached}
           onClick={() => isBreached ? navigate('/security') : setActiveModal({ title: 'Security', val: 'Secure', desc: 'Real-time SHA-256 hash linkage monitoring.' })}
         />
-        <StatCard title="Active Nodes" value={liveNodes.length || '—'} suffix={liveNodes.length > 0 ? 'mining' : 'pair in uplink'} icon={<Signal size={17} />} color="violet"
-          onClick={() => navigate('/provisioning')} />
+        <StatCard title="Active Nodes" value={liveNodes.length || '—'}
+          suffix={liveNodes.length > 0 ? `${liveNodes.length} mining` : 'none paired'}
+          icon={<Signal size={17} />} color="violet"
+          onClick={() => setActiveModal({
+            title: 'Active Nodes',
+            val: liveNodes.length || 0,
+            desc: liveNodes.length > 0
+              ? `${liveNodes.length} hardware node${liveNodes.length !== 1 ? 's' : ''} currently live on the SenseChain mesh: ${liveNodes.map(n => n.id).join(', ')}.`
+              : 'No hardware nodes are currently paired. Go to Uplink Terminal to pair a WiFi or Bluetooth device.'
+          })} />
       </div>
 
       {/* ── CONNECTED HARDWARE NODES PANEL ── */}
@@ -390,7 +410,7 @@ const Dashboard = ({
 
         {/* Telemetry Chart */}
         <div className="lg:col-span-2 glass-card rounded-[22px] p-6 md:p-8 flex flex-col">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400 rounded-xl">
                 <Activity size={18} />
@@ -398,38 +418,66 @@ const Dashboard = ({
               <div>
                 <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Telemetry Stream</h3>
                 <p className="text-[10px] text-stone-400">
-                  {liveNodes.length > 0 ? `⚡ ${liveNodes.length} node(s) broadcasting · ` : 'Live sensor data · '}
-                  {telemetryData.length} data points
+                  {liveNodes.length > 0
+                    ? `${liveNodes.length} node${liveNodes.length !== 1 ? 's' : ''} broadcasting live · ${telemetryData.length} data points`
+                    : 'Awaiting paired node data'
+                  }
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <LegendDot color="rose" label="Temp" value={`${lastTemp}°C`} />
               <LegendDot color="sky"  label="Humidity" value={`${lastHum}%`} />
             </div>
           </div>
-          <div className="h-64 sm:h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={telemetryData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gTemp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={isBreached ? '#ef4444' : '#ef4444'} stopOpacity={isBreached ? 0.4 : 0.2} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gHum" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#0ea5e9" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="5 5" vertical={false} strokeOpacity={0.05} />
-                <XAxis dataKey="label" tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#9ca3af' }} tickLine={false} axisLine={false} domain={['dataMin - 3', 'dataMax + 3']} />
-                <Tooltip content={<ChartTooltip />} />
-                <Area type="monotone" dataKey="temp"     stroke={isBreached ? '#dc2626' : '#ef4444'} strokeWidth={isBreached ? 2.5 : 2} fill="url(#gTemp)" isAnimationActive={false} name="Temperature" />
-                <Area type="monotone" dataKey="humidity" stroke="#0ea5e9" strokeWidth={2} fill="url(#gHum)" isAnimationActive={false} name="Humidity" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+
+          {/* Per-node legend chips */}
+          {liveNodes.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {liveNodes.map((node, i) => {
+                const nodeColors = ['#ef4444','#8b5cf6','#06b6d4','#f59e0b','#10b981'];
+                const c = nodeColors[i % nodeColors.length];
+                return (
+                  <div key={node.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/8 bg-white/4 text-[9px] font-mono font-bold">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c }} />
+                    <span className="text-stone-300 truncate max-w-[140px]">{node.id}</span>
+                    <span className="text-stone-500">· {node.lastTemp?.toFixed(1)}°C</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {telemetryData.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-12 border-2 border-dashed border-stone-100 dark:border-white/5 rounded-2xl">
+              <Activity size={28} className="text-stone-300 dark:text-stone-700 mb-3" />
+              <p className="text-sm font-medium text-stone-400">No telemetry data yet</p>
+              <p className="text-xs text-stone-400 mt-1">Pair a node in the Uplink Terminal to start streaming</p>
+            </div>
+          ) : (
+            <div className="h-64 sm:h-[260px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={telemetryData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gTemp" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor={isBreached ? '#ef4444' : '#ef4444'} stopOpacity={isBreached ? 0.4 : 0.2} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gHum" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#0ea5e9" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="5 5" vertical={false} strokeOpacity={0.05} />
+                  <XAxis dataKey="label" tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#9ca3af' }} tickLine={false} axisLine={false} domain={['dataMin - 3', 'dataMax + 3']} />
+                  <Tooltip content={<ChartTooltip liveNodes={liveNodes} />} />
+                  <Area type="monotone" dataKey="temp"     stroke={isBreached ? '#dc2626' : '#ef4444'} strokeWidth={isBreached ? 2.5 : 2} fill="url(#gTemp)" isAnimationActive={false} name="Temperature" dot={false} activeDot={{ r: 4, fill: '#ef4444' }} />
+                  <Area type="monotone" dataKey="humidity" stroke="#0ea5e9" strokeWidth={2} fill="url(#gHum)" isAnimationActive={false} name="Humidity" dot={false} activeDot={{ r: 4, fill: '#0ea5e9' }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         {/* AI Sidebar */}
@@ -668,11 +716,21 @@ const LegendDot = ({ color, label, value }) => (
   </div>
 );
 
-const ChartTooltip = ({ active, payload, label }) => {
+const ChartTooltip = ({ active, payload, label, liveNodes = [] }) => {
   if (!active || !payload?.length) return null;
+  const nodeId   = payload[0]?.payload?.nodeId;
+  const nodeIdx  = liveNodes.findIndex(n => n.id === nodeId);
+  const nodeColors = ['#ef4444','#8b5cf6','#06b6d4','#f59e0b','#10b981'];
+  const nodeColor = nodeIdx >= 0 ? nodeColors[nodeIdx % nodeColors.length] : '#ef4444';
   return (
-    <div className="glass-card rounded-xl p-4 shadow-xl border border-stone-100 dark:border-white/8 min-w-[150px]">
-      <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-2">{label} · Sensor Data</p>
+    <div className="glass-card rounded-xl p-4 shadow-xl border border-stone-100 dark:border-white/8 min-w-[170px]">
+      <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-1">{label} · Sensor Data</p>
+      {nodeId && (
+        <p className="text-[8px] font-mono mb-2 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: nodeColor }} />
+          <span className="text-stone-400 truncate">{nodeId}</span>
+        </p>
+      )}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-1.5"><Thermometer size={12} className="text-red-500" /><span className="text-xs text-stone-500">Thermal</span></div>
