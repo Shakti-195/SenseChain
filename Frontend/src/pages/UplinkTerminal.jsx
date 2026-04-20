@@ -83,7 +83,8 @@ const HandshakeModal = ({ node, onClose, onComplete }) => {
 
 // --- MAIN PAGE ---
 const UplinkTerminal = ({ activeNodes = {}, connError }) => {
-  const { virtualBreach, breachedBlock, isSimulating, simBlockCount, simNodeId } = useBreach();
+  const { virtualBreach, breachedBlock, pairedNodes, pairNode, unpairNode,
+          isSimulating, simBlockCount } = useBreach();
 
   const [uplinkData, setUplinkData] = useState({ ip: '127.0.0.1', endpoint: '' });
   const [isScanning, setIsScanning] = useState(false);
@@ -110,11 +111,12 @@ const UplinkTerminal = ({ activeNodes = {}, connError }) => {
     }
   }, [virtualBreach]); // eslint-disable-line
 
+  // Log when sim blocks are generated
   useEffect(() => {
-    if (isSimulating) {
-      addLog(`[SIM]    Virtual node ${simNodeId} broadcasting ${simBlockCount} blocks`, 'info');
+    if (isSimulating && simBlockCount > 0 && simBlockCount % 5 === 0) {
+      addLog(`[LEDGER] ${simBlockCount} virtual blocks mined across ${pairedNodes.filter(n => n.status === 'Live').length} node(s)`, 'info');
     }
-  }, [isSimulating, simBlockCount]); // eslint-disable-line
+  }, [simBlockCount]); // eslint-disable-line
 
   // Merge backend activeNodes with locally authorized ones
   const allAuthorized = { ...localAuthorized, ...activeNodes };
@@ -143,6 +145,7 @@ const UplinkTerminal = ({ activeNodes = {}, connError }) => {
   };
 
   const handleHandshakeComplete = (node) => {
+    // 1. Store locally (UI tracking + sessStorage)
     const entry = {
       status: 'Authorized',
       mac: node.mac,
@@ -153,7 +156,11 @@ const UplinkTerminal = ({ activeNodes = {}, connError }) => {
     const updated = { ...localAuthorized, [node.id]: entry };
     setLocalAuthorized(updated);
     sessionStorage.setItem('sc-authorized-nodes', JSON.stringify(updated));
-    addLog(`Cluster authorized: ${node.id} [${node.mac}]`, 'success');
+    addLog(`✓ Cluster authorized: ${node.id} [${node.mac}]`, 'success');
+    addLog(`[SIM]  Starting live hardware simulation for ${node.id}...`, 'info');
+
+    // 2. Register with global BreachContext → starts persistent simulation across pages
+    pairNode({ id: node.id, mac: node.mac, type: node.type, rssi: node.rssi, freq: node.freq });
   };
 
   return (
@@ -281,44 +288,107 @@ const UplinkTerminal = ({ activeNodes = {}, connError }) => {
                   {virtualBreach && (
                     <span className="ml-2 text-[8px] font-bold text-red-500 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wide animate-pulse">BREACH</span>
                   )}
+                  {isSimulating && !virtualBreach && (
+                    <span className="ml-2 text-[8px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wide animate-pulse">● Mining</span>
+                  )}
                 </h3>
-                <p className="text-[10px] text-stone-400">{Object.keys(allAuthorized).length} node{Object.keys(allAuthorized).length !== 1 ? 's' : ''} registered</p>
+                <p className="text-[10px] text-stone-400">
+                  {pairedNodes.length} node{pairedNodes.length !== 1 ? 's' : ''} registered · {simBlockCount} total blocks mined
+                </p>
               </div>
             </div>
 
             <div className="space-y-3">
-              {Object.keys(allAuthorized).length === 0 ? (
+              {pairedNodes.length === 0 ? (
                 <div className="py-14 text-center border-2 border-dashed border-stone-100 dark:border-white/5 rounded-2xl">
                   <GitBranch size={28} className="mx-auto mb-2 text-stone-300 dark:text-stone-700" />
                   <p className="text-stone-400 text-xs font-medium">Awaiting P2P link authorization · Pair a node above to register</p>
                 </div>
-              ) : Object.entries(allAuthorized).map(([id, info]) => (
-                <motion.div key={id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className={`flex items-center justify-between p-4 border rounded-2xl transition-all duration-500 ${
+              ) : pairedNodes.map((node) => (
+                <motion.div key={node.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className={`p-4 border rounded-2xl transition-all duration-500 ${
                     virtualBreach
                       ? 'bg-red-50/60 dark:bg-red-900/15 border-red-200 dark:border-red-800/40'
-                      : 'bg-emerald-50/60 dark:bg-emerald-900/15 border-emerald-200 dark:border-emerald-800/40'
+                      : node.status === 'Live'
+                      ? 'bg-emerald-50/60 dark:bg-emerald-900/15 border-emerald-200 dark:border-emerald-800/40'
+                      : 'bg-stone-50 dark:bg-white/3 border-stone-200 dark:border-white/5'
                   }`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`p-2.5 bg-white dark:bg-white/6 rounded-xl border ${virtualBreach ? 'text-red-500 border-red-100' : 'text-emerald-500 border-emerald-100'} dark:border-white/5`}>
-                      <Smartphone size={18} />
+                  {/* Node header row */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl border ${virtualBreach ? 'text-red-500 border-red-100 bg-white dark:bg-white/6' : 'text-emerald-500 border-emerald-100 bg-white dark:bg-white/6'} dark:border-white/5`}>
+                        <Smartphone size={15} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm font-mono">{node.id}</p>
+                        <p className="text-[9px] text-stone-400 font-mono">{node.mac} · {node.freq}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-sm font-mono">{id}</p>
-                      <p className="text-[10px] text-stone-400 font-mono flex items-center gap-2">
-                        <Activity size={9} className={virtualBreach ? 'text-red-500 animate-ping' : 'text-emerald-500 animate-pulse'} />
-                        {virtualBreach ? 'LINK COMPROMISED' : (info.status || 'Authorized')} · {info.mac || 'N/A'}
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[8px] font-bold uppercase rounded-full border ${
+                        virtualBreach ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                        node.status === 'Live' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
+                        'bg-yellow-500/10 border-yellow-500/20 text-yellow-500'
+                      }`}>
+                        <span className={`w-1 h-1 rounded-full ${virtualBreach ? 'bg-red-500 animate-ping' : node.status === 'Live' ? 'bg-emerald-500 animate-pulse' : 'bg-yellow-500 animate-pulse'}`} />
+                        {virtualBreach ? 'Compromised' : node.status}
+                      </span>
+                      {!virtualBreach && (
+                        <button onClick={() => unpairNode(node.id)}
+                          className="text-[9px] text-stone-400 hover:text-red-500 transition-colors font-bold uppercase tracking-wide">
+                          Disconnect
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className={`inline-block px-3 py-1 text-white text-[9px] font-black uppercase rounded-full shadow mb-1 ${
-                      virtualBreach ? 'bg-red-500 shadow-red-500/20 animate-pulse' : 'bg-emerald-500 shadow-emerald-500/20'
-                    }`}>
-                      {virtualBreach ? 'Compromised' : 'Secured'}
+
+                  {/* Live stats row */}
+                  {node.status === 'Live' && (
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      <div className="bg-white/40 dark:bg-white/4 rounded-lg p-2 text-center">
+                        <p className="text-[8px] text-stone-400 uppercase tracking-wide">Blocks</p>
+                        <p className="text-sm font-bold font-mono text-red-600 dark:text-red-400">{node.blocksMined}</p>
+                      </div>
+                      <div className="bg-white/40 dark:bg-white/4 rounded-lg p-2 text-center">
+                        <p className="text-[8px] text-stone-400 uppercase tracking-wide">Temp</p>
+                        <p className={`text-sm font-bold font-mono ${virtualBreach ? 'text-red-500' : 'text-orange-600 dark:text-orange-400'}`}>
+                          {virtualBreach ? '99.9' : node.lastTemp?.toFixed(1)}°C
+                        </p>
+                      </div>
+                      <div className="bg-white/40 dark:bg-white/4 rounded-lg p-2 text-center">
+                        <p className="text-[8px] text-stone-400 uppercase tracking-wide">Hum</p>
+                        <p className="text-sm font-bold font-mono text-sky-600 dark:text-sky-400">{node.lastHum?.toFixed(1)}%</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Signal + mining bar */}
+                  <div className="flex items-center justify-between text-[9px] text-stone-400 font-mono">
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-end gap-0.5 h-3">
+                        {[1,2,3,4].map(i => {
+                          const dbm = parseInt(node.rssi) || -70;
+                          const s = dbm > -50 ? 4 : dbm > -60 ? 3 : dbm > -70 ? 2 : 1;
+                          return <div key={i} className={`w-1 rounded-sm ${i <= s ? 'bg-emerald-400' : 'bg-white/15'}`} style={{ height: `${i * 25}%` }} />;
+                        })}
+                      </div>
+                      <span>{node.rssi}</span>
+                    </div>
+                    <span className={node.status === 'Live' && !virtualBreach ? 'text-emerald-500' : 'text-stone-500'}>
+                      {node.status === 'Live' && !virtualBreach ? 'Mining...' : node.status === 'Live' ? '⚡ Compromised' : node.status + '...'}
                     </span>
-                    <p className="text-[9px] text-stone-400 font-mono">{fmtTime(info.authorized_at)}</p>
                   </div>
+
+                  {/* Activity bar */}
+                  {node.status === 'Live' && (
+                    <div className="mt-2 w-full bg-white/5 rounded-full overflow-hidden h-0.5">
+                      <motion.div
+                        animate={{ x: ['-100%', '100%'] }}
+                        transition={{ repeat: Infinity, duration: virtualBreach ? 0.5 : 1.8, ease: 'linear' }}
+                        className={`h-full w-1/2 bg-gradient-to-r from-transparent ${virtualBreach ? 'via-red-400' : 'via-emerald-400'} to-transparent`}
+                      />
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </div>

@@ -4,6 +4,7 @@ import {
   FileText, Download, Terminal, Fingerprint, Unlock,
   AlertCircle, Database, Hash, Signal, Lock, Cpu,
   Flame, Radio, TrendingDown, TrendingUp, Eye, EyeOff,
+  Wifi, Bluetooth, Activity,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
@@ -53,7 +54,8 @@ const IDLE_LOGS = [
 const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
   const { token } = useAuth();
   const { virtualBreach, breachedBlock, setVirtualBreach, clearBreach,
-          isSimulating, simBlockCount, simNodeId } = useBreach();
+          isSimulating, simBlockCount, simNodeId,
+          pairedNodes, nodeSimLogs } = useBreach();
 
   // Effective chain height = real backend blocks + virtual sim blocks
   const effectiveChainHeight = chainHeight + (isSimulating ? simBlockCount : 0);
@@ -78,9 +80,6 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
   ]);
   const logEndRef = useRef(null);
 
-  // ── IDLE TICKER ──
-  const idleRef = useRef(null);
-
   const addLog = useCallback((msg, type = 'info') => {
     setLog(prev => [{ time: fmtNow(), msg, type }, ...prev].slice(0, 20));
   }, []);
@@ -98,22 +97,44 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
       setLog(prev => {
         const updated = [...prev];
         const idx = updated.findIndex(l => l.msg.startsWith('Chain height:'));
-        const msg = `Chain height: ${eff} blocks detected${isSimulating ? ` (${simBlockCount} virtual from ${simNodeId})` : ''}`;
+        const liveNodes = pairedNodes.filter(n => n.status === 'Live');
+        const nodeNames = liveNodes.map(n => n.id.split('-')[0]).join(', ');
+        const msg = `Chain height: ${eff} blocks detected${liveNodes.length > 0 ? ` (${simBlockCount} virtual from ${nodeNames || simNodeId})` : ''}`;
         if (idx > -1) updated[idx] = { time: fmtNow(), msg, type: 'info' };
         return updated;
       });
     }
-  }, [effectiveChainHeight, isSimulating, simBlockCount, simNodeId]);
+  }, [effectiveChainHeight, isSimulating, simBlockCount, simNodeId, pairedNodes]);
 
-  // Idle ticker — emits passive monitoring lines every ~5s
+  // Merge real-time nodeSimLogs (from paired nodes) into the terminal display
+  // Only inject when not attacking/repairing to avoid log collision
   useEffect(() => {
-    if (isAttacking || isRepairing) return;
+    if (!isAttacking && !isRepairing && nodeSimLogs.length > 0) {
+      const latest = nodeSimLogs[0]; // most recent log
+      if (latest) {
+        setLog(prev => {
+          // Avoid duplicate injection
+          if (prev[0]?.id === latest.id) return prev;
+          return [{ id: latest.id, time: latest.time, msg: latest.msg, type: latest.type }, ...prev].slice(0, 20);
+        });
+      }
+    }
+  }, [nodeSimLogs, isAttacking, isRepairing]);
+
+  // Idle ticker — fallback when no nodes are live
+  const idleRef = useRef(null);
+  useEffect(() => {
+    if (isAttacking || isRepairing || pairedNodes.some(n => n.status === 'Live')) {
+      clearInterval(idleRef.current);
+      return;
+    }
     idleRef.current = setInterval(() => {
       const fn = IDLE_LOGS[Math.floor(Math.random() * IDLE_LOGS.length)];
       addLog(fn(), 'sys');
     }, 5000);
     return () => clearInterval(idleRef.current);
-  }, [isAttacking, isRepairing, addLog]);
+  }, [isAttacking, isRepairing, pairedNodes, addLog]);
+
 
   // ── VIRTUAL ATTACK (fully local) ──
   const runVirtualAttack = useCallback((idx) => {
@@ -493,11 +514,58 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
           </div>
         </div>
 
-        {/* NEURAL LOG TERMINAL */}
+        {/* NEURAL LOG TERMINAL + CONNECTED NODES */}
         <div className={`glass-panel rounded-[24px] p-6 md:p-8 flex flex-col transition-all duration-700 ${isBreached ? 'border-red-300 dark:border-red-700/30' : ''}`}>
+
+          {/* Connected Nodes Banner */}
+          {pairedNodes.length > 0 && (
+            <div className="mb-5 p-4 bg-white/3 border border-white/6 rounded-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                  <Activity size={12} className={isSimulating ? 'text-emerald-400 animate-pulse' : 'text-stone-500'} />
+                  Paired Node Monitor
+                </div>
+                <span className="text-[9px] font-bold text-stone-500 font-mono">{pairedNodes.filter(n => n.status === 'Live').length}/{pairedNodes.length} live</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {pairedNodes.map(node => (
+                  <div key={node.id} className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                    isBreached && node.status === 'Live' ? 'bg-red-900/20 border-red-700/30' :
+                    node.status === 'Live' ? 'bg-emerald-900/15 border-emerald-700/25' :
+                    'bg-white/3 border-white/6'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        isBreached && node.status === 'Live' ? 'bg-red-500 animate-ping' :
+                        node.status === 'Live' ? 'bg-emerald-500 animate-pulse' :
+                        'bg-yellow-500 animate-pulse'
+                      }`} />
+                      <span className="text-[10px] font-mono font-bold text-stone-300">{node.id}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[9px] font-mono">
+                      {node.status === 'Live' && (
+                        <>
+                          <span className={isBreached ? 'text-red-400' : 'text-orange-400'}>{isBreached ? '99.9' : node.lastTemp?.toFixed(1)}°C</span>
+                          <span className="text-blue-400">{node.lastHum?.toFixed(1)}%</span>
+                          <span className="text-emerald-400 font-bold">{node.blocksMined}blk</span>
+                        </>
+                      )}
+                      {node.status !== 'Live' && (
+                        <span className="text-yellow-400 animate-pulse">{node.status}...</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3 mb-4">
-            <Terminal size={16} className={isBreached ? 'text-red-500' : 'text-stone-500'} />
+            <Terminal size={16} className={isBreached ? 'text-red-500' : isSimulating ? 'text-emerald-500' : 'text-stone-500'} />
             <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">Neural Log Analyzer</span>
+            {isSimulating && !isBreached && (
+              <span className="text-[8px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wide">● Live Feed</span>
+            )}
             <div className={`ml-auto w-2 h-2 rounded-full ${isBreached ? 'bg-red-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`} />
             <span className="text-[9px] font-mono text-stone-500">{LOCAL_TZ}</span>
           </div>
