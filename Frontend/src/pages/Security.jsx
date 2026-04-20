@@ -55,7 +55,7 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
   const { token } = useAuth();
   const { virtualBreach, breachedBlock, setVirtualBreach, clearBreach,
           isSimulating, simBlockCount, simNodeId,
-          pairedNodes, nodeSimLogs } = useBreach();
+          pairedNodes, nodeSimLogs, virtualBlocks } = useBreach();
 
   // Effective chain height = real backend blocks + virtual sim blocks
   const effectiveChainHeight = chainHeight + (isSimulating ? simBlockCount : 0);
@@ -610,62 +610,154 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
         </div>
       </div>
 
+      {/* ── HOW IT WORKS ── */}
+      <div className="glass-card rounded-[24px] p-6 md:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2.5 bg-blue-100 dark:bg-blue-500/12 text-blue-600 dark:text-blue-400 rounded-xl">
+            <Cpu size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>How the Simulation Works</h3>
+            <p className="text-[10px] text-stone-400">Attack → Breach → Detect → Repair — full forensic workflow explained</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* ATTACK FLOW */}
+          <div className="space-y-2">
+            <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500" /> Cyber Attack Simulation
+            </p>
+            {[
+              { step: '01', icon: '🎯', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20', title: 'Reconnaissance', desc: 'Attacker scans the active blockchain for a target block index to tamper.' },
+              { step: '02', icon: '💉', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20', title: 'Payload Injection', desc: 'Malicious entropy payload is deployed at the chosen block address.' },
+              { step: '03', icon: '🔥', color: 'text-red-400 bg-red-500/10 border-red-500/20', title: 'Data Mutation', desc: 'Block data is overridden (temperature → 99.9°C) simulating sensor spoofing.' },
+              { step: '04', icon: '🔓', color: 'text-rose-400 bg-rose-500/10 border-rose-500/20', title: 'Hash Forgery', desc: 'SHA-256 is recomputed with a malicious nonce, severing the hash chain link.' },
+              { step: '05', icon: '⚡', color: 'text-red-600 bg-red-700/10 border-red-600/20', title: 'Global Breach Alert', desc: 'All downstream blocks invalid. Critical alert broadcasts across the entire network.' },
+            ].map(({ step, icon, color, title, desc }) => (
+              <div key={step} className={`flex items-start gap-3 p-3 rounded-xl border ${color}`}>
+                <span className={`shrink-0 text-[9px] font-black font-mono px-1.5 py-0.5 rounded-md border ${color}`}>{step}</span>
+                <span className="text-lg leading-none shrink-0">{icon}</span>
+                <div>
+                  <p className="text-xs font-bold text-stone-200">{title}</p>
+                  <p className="text-[10px] text-stone-400 leading-relaxed mt-0.5">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* REPAIR FLOW */}
+          <div className="space-y-2">
+            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Chain Repair Protocol
+            </p>
+            {[
+              { step: '01', icon: '🔬', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20', title: 'Forensic Initiation', desc: 'Repair protocol triggered. Forensic scan launched to locate the tampered block.' },
+              { step: '02', icon: '🗺️', color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20', title: 'Block Locator', desc: 'Hash comparison identifies the exact tampered block by detecting the broken chain link.' },
+              { step: '03', icon: '🔨', color: 'text-violet-400 bg-violet-500/10 border-violet-500/20', title: 'SHA-256 Rebuild', desc: 'Valid SHA-256 hashes recomputed from genesis #0 upward using original sensor data.' },
+              { step: '04', icon: '🔗', color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20', title: 'Hash Re-linking', desc: 'Parent hashes re-linked across all nodes, restoring the cryptographic chain integrity.' },
+              { step: '05', icon: '✅', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', title: 'Network Sync', desc: 'Merkle root restored. All nodes re-synchronized. Ledger returns to verified state.' },
+            ].map(({ step, icon, color, title, desc }) => (
+              <div key={step} className={`flex items-start gap-3 p-3 rounded-xl border ${color}`}>
+                <span className={`shrink-0 text-[9px] font-black font-mono px-1.5 py-0.5 rounded-md border ${color}`}>{step}</span>
+                <span className="text-lg leading-none shrink-0">{icon}</span>
+                <div>
+                  <p className="text-xs font-bold text-stone-200">{title}</p>
+                  <p className="text-[10px] text-stone-400 leading-relaxed mt-0.5">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* QUICK GUIDE */}
+        <div className="mt-6 p-4 bg-white/3 border border-white/6 rounded-2xl">
+          <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <Lock size={10} /> Quick Guide — 3 Steps to Run a Full Simulation
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { num: '1', color: 'text-blue-400 border-blue-500/30 bg-blue-500/10', title: 'Pair Hardware', desc: 'Uplink Terminal → Scan → Connect via WiFi or Bluetooth to start mining' },
+              { num: '2', color: 'text-red-400 border-red-500/30 bg-red-500/10', title: 'Launch Attack', desc: 'Choose a block index below → Click "Simulate Cyber Attack"' },
+              { num: '3', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10', title: 'Repair Chain', desc: 'Press "Repair Chain" to restore the cryptographic integrity' },
+            ].map(({ num, color, title, desc }) => (
+              <div key={num} className={`flex items-start gap-2.5 p-3 rounded-xl border ${color}`}>
+                <span className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border ${color}`}>{num}</span>
+                <div>
+                  <p className="text-xs font-bold text-stone-200">{title}</p>
+                  <p className="text-[10px] text-stone-400 mt-0.5 leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* ── REAL-TIME BLOCK INSPECTOR ── */}
       <div className="glass-card rounded-[24px] p-6 md:p-8">
         <div className="flex items-center gap-3 mb-5">
           <div className="p-2.5 bg-violet-100 dark:bg-violet-500/12 text-violet-600 dark:text-violet-400 rounded-xl"><Eye size={18} /></div>
           <div>
             <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Block Inspector</h3>
-            <p className="text-[10px] text-stone-400">Live SHA-256 block analysis · {chain.length} on-chain + virtual</p>
+            <p className="text-[10px] text-stone-400">
+              Live SHA-256 block analysis · {virtualBlocks.length} virtual block{virtualBlocks.length !== 1 ? 's' : ''} from {pairedNodes.filter(n => n.status === 'Live').length} live node{pairedNodes.filter(n => n.status === 'Live').length !== 1 ? 's' : ''}
+            </p>
           </div>
+          {isBreached && virtualBlocks.length > 0 && (
+            <span className="ml-auto text-[8px] font-bold text-red-500 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full uppercase tracking-wide animate-pulse">⚡ All Corrupted</span>
+          )}
         </div>
 
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left min-w-[500px]">
+          <table className="w-full text-left min-w-[520px]">
             <thead>
               <tr className="border-b border-stone-100 dark:border-white/5">
-                {['Block', 'SHA-256 Hash', 'Nonce', 'Status'].map((h, i) => (
-                  <th key={h} className={`px-4 py-3 text-[9px] font-bold text-stone-400 uppercase tracking-widest ${i === 3 ? 'text-right' : ''}`}>{h}</th>
+                {['Block', 'Source Node', 'SHA-256 Hash', 'Nonce', 'Status'].map((h, i) => (
+                  <th key={h} className={`px-4 py-3 text-[9px] font-bold text-stone-400 uppercase tracking-widest ${i === 4 ? 'text-right' : ''}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-50 dark:divide-white/3">
-              {(chain.length > 0 ? chain.slice(-8).reverse() : []).map((block, i) => {
-                const isTampered = isBreached && block.index === breachedBlockIdx;
+              {(virtualBlocks.length > 0 ? virtualBlocks.slice(-10).reverse() : []).map((block, i) => {
+                const isCorrupted = isBreached;
                 return (
                   <motion.tr key={block.hash || i} layout
-                    className={`transition-colors ${isTampered ? 'bg-red-50 dark:bg-red-900/10' : 'hover:bg-stone-50 dark:hover:bg-white/2'}`}>
+                    className={`transition-colors ${isCorrupted ? 'bg-red-50/60 dark:bg-red-900/10' : 'hover:bg-stone-50 dark:hover:bg-white/2'}`}>
                     <td className="px-4 py-3">
-                      <span className={`text-sm font-bold font-mono ${isTampered ? 'text-red-600 dark:text-red-400' : 'text-red-600 dark:text-red-400'}`}>
+                      <span className={`text-sm font-bold font-mono ${isCorrupted ? 'text-red-500' : 'text-red-600 dark:text-red-400'}`}>
                         #{block.index}
-                        {isTampered && <span className="ml-2 text-[9px] bg-red-500/10 border border-red-500/30 text-red-500 px-1.5 py-0.5 rounded-full uppercase">TAMPERED</span>}
+                        {isCorrupted && <span className="ml-2 text-[8px] bg-red-500/10 border border-red-500/30 text-red-500 px-1.5 py-0.5 rounded-full uppercase animate-pulse">CORRUPTED</span>}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-[10px] font-mono truncate max-w-[200px] block ${isTampered ? 'text-red-400 line-through opacity-60' : 'text-stone-400'}`}>
-                        {isTampered ? 'HASH_CORRUPTED_XXXX...' : block.hash}
+                      <span className="text-[9px] font-mono text-stone-400 bg-white/5 border border-white/6 px-2 py-0.5 rounded-full">
+                        {block._nodeId?.split('-')[0] ?? 'Node'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[10px] font-mono text-stone-500 bg-stone-100 dark:bg-white/5 px-2 py-1 rounded-lg">{block.nonce ?? 0}</span>
+                      <span className={`text-[10px] font-mono truncate max-w-[180px] block ${isCorrupted ? 'text-red-400 line-through opacity-60' : 'text-stone-400'}`}>
+                        {isCorrupted ? 'HASH_CORRUPTED_' + (block.hash?.slice(2, 10).toUpperCase() ?? 'XXXX') + '...' : block.hash}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[10px] font-mono px-2 py-1 rounded-lg ${isCorrupted ? 'text-red-400 bg-red-500/10 border border-red-500/20' : 'text-stone-500 bg-stone-100 dark:bg-white/5'}`}>
+                        {isCorrupted ? '⚠ FORGED' : (block.nonce ?? 0)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border ${
-                        isTampered
-                          ? 'bg-red-500/10 border-red-500/30 text-red-500'
-                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
-                      }`}>
-                        {isTampered ? '✗ Corrupted' : '✓ Verified'}
+                      <span className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border ${isCorrupted ? 'bg-red-500/10 border-red-500/30 text-red-500' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'}`}>
+                        {isCorrupted ? '✗ Corrupted' : '✓ Verified'}
                       </span>
                     </td>
                   </motion.tr>
                 );
               })}
-              {chain.length === 0 && (
+              {virtualBlocks.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-stone-400 text-xs">
+                  <td colSpan={5} className="px-4 py-10 text-center text-stone-400 text-xs">
                     <Database size={28} className="mx-auto mb-2 opacity-20" />
-                    No on-chain blocks. Start Simulation Lab on Dashboard to generate blocks.
+                    <p className="font-medium">No paired node blocks yet</p>
+                    <p className="text-[10px] mt-1 text-stone-500">Pair a device in the Uplink Terminal to start live block mining</p>
                   </td>
                 </tr>
               )}
