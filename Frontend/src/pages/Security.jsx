@@ -52,7 +52,11 @@ const IDLE_LOGS = [
 
 const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
   const { token } = useAuth();
-  const { virtualBreach, breachedBlock, setVirtualBreach, clearBreach } = useBreach();
+  const { virtualBreach, breachedBlock, setVirtualBreach, clearBreach,
+          isSimulating, simBlockCount, simNodeId } = useBreach();
+
+  // Effective chain height = real backend blocks + virtual sim blocks
+  const effectiveChainHeight = chainHeight + (isSimulating ? simBlockCount : 0);
 
   // ── UI STATE ──
   const [toast, setToast]               = useState(null);
@@ -86,18 +90,20 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
     setTimeout(() => setToast(null), 4000);
   }, []);
 
-  // Update chain height log when prop changes
+  // Update chain height log when prop or sim changes
   useEffect(() => {
-    if (chainHeight > 1) {
-      setTamperIndex(prev => Math.min(Math.max(prev, 1), chainHeight - 1));
+    const eff = effectiveChainHeight;
+    if (eff > 1) {
+      setTamperIndex(prev => Math.min(Math.max(prev, 1), eff - 1));
       setLog(prev => {
         const updated = [...prev];
         const idx = updated.findIndex(l => l.msg.startsWith('Chain height:'));
-        if (idx > -1) updated[idx] = { time: fmtNow(), msg: `Chain height: ${chainHeight} blocks detected`, type: 'info' };
+        const msg = `Chain height: ${eff} blocks detected${isSimulating ? ` (${simBlockCount} virtual from ${simNodeId})` : ''}`;
+        if (idx > -1) updated[idx] = { time: fmtNow(), msg, type: 'info' };
         return updated;
       });
     }
-  }, [chainHeight]);
+  }, [effectiveChainHeight, isSimulating, simBlockCount, simNodeId]);
 
   // Idle ticker — emits passive monitoring lines every ~5s
   useEffect(() => {
@@ -149,7 +155,7 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
 
   // ── MAIN ATTACK TRIGGER ──
   const simulateTamper = async () => {
-    const totalBlocks = chainHeight;
+    const totalBlocks = effectiveChainHeight;
     if (totalBlocks <= 1) {
       showToast('error', 'Need ≥ 2 blocks. Start the Simulation Lab on Dashboard first.');
       addLog('[ABORT]  Insufficient chain depth. Generate blocks via Dashboard → Simulation Lab.', 'error');
@@ -385,14 +391,21 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
 
           <div className="space-y-5 relative z-10">
 
-            {/* Chain depth display */}
+            {/* Chain depth display with sim awareness */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-stone-50 dark:bg-white/3 border border-stone-100 dark:border-white/5">
               <span className="text-xs font-semibold text-stone-500">Chain depth</span>
-              <span className="font-bold text-sm font-mono text-red-600 dark:text-red-400">{chainHeight} blocks</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm font-mono text-red-600 dark:text-red-400">{effectiveChainHeight} blocks</span>
+                {isSimulating && (
+                  <span className="text-[8px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wide animate-pulse">
+                    +{simBlockCount} SIM
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Warning banner if not enough blocks */}
-            {chainHeight <= 1 && (
+            {effectiveChainHeight <= 1 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-400 text-xs font-medium flex items-start gap-2">
                 <AlertCircle size={14} className="shrink-0 mt-0.5" />
@@ -410,15 +423,15 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
                 <input
                   type="number"
                   min={1}
-                  max={Math.max(1, chainHeight - 1)}
+                  max={Math.max(1, effectiveChainHeight - 1)}
                   value={tamperIndex}
-                  onChange={e => setTamperIndex(Math.max(1, Math.min(Number(e.target.value), Math.max(1, chainHeight - 1))))}
-                  disabled={chainHeight <= 1 || isAttacking || isRepairing}
+                  onChange={e => setTamperIndex(Math.max(1, Math.min(Number(e.target.value), Math.max(1, effectiveChainHeight - 1))))}
+                  disabled={effectiveChainHeight <= 1 || isAttacking || isRepairing}
                   className="glass-input pl-11 text-xl font-bold text-red-600 dark:text-red-400 font-mono text-center disabled:opacity-50"
                 />
               </div>
               <p className="text-[10px] text-stone-400 text-center mt-1.5">
-                Genesis Block #0 is immutable · Valid range: 1–{Math.max(1, chainHeight - 1)}
+                Genesis Block #0 is immutable · Valid range: 1–{Math.max(1, effectiveChainHeight - 1)}
               </p>
             </div>
 
@@ -448,15 +461,15 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={simulateTamper}
-                disabled={isAttacking || isRepairing || chainHeight <= 1}
+                disabled={isAttacking || isRepairing || effectiveChainHeight <= 1}
                 className={`w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-sm font-bold transition-all shadow-lg ${
-                  chainHeight <= 1
+                  effectiveChainHeight <= 1
                     ? 'bg-stone-200 dark:bg-white/6 text-stone-400 cursor-not-allowed'
                     : 'bg-stone-900 dark:bg-white/8 hover:bg-red-600 hover:text-white hover:shadow-red-600/25 text-white border border-stone-700 dark:border-white/10'
                 } disabled:opacity-40 disabled:cursor-not-allowed`}>
                 {isAttacking
                   ? <><RefreshCw size={16} className="animate-spin" /> Deploying Attack...</>
-                  : chainHeight <= 1
+                  : effectiveChainHeight <= 1
                   ? <><AlertCircle size={16} /> Insufficient Blocks</>
                   : <><Zap size={16} /> Simulate Cyber Attack</>}
               </motion.button>
@@ -597,7 +610,7 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           {
-            label: 'Total Blocks', value: chainHeight, icon: <Database size={16} />,
+            label: 'Total Blocks', value: effectiveChainHeight, icon: <Database size={16} />,
             color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-500/12',
           },
           {
@@ -610,8 +623,8 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
             color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-500/12',
           },
           {
-            label: 'Network Nodes', value: chainHeight > 0 ? 'Live' : 'Offline', icon: <Signal size={16} />,
-            color: chainHeight > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-stone-500',
+            label: 'Network Nodes', value: effectiveChainHeight > 0 ? (isSimulating ? 'Live+Sim' : 'Live') : 'Offline', icon: <Signal size={16} />,
+            color: effectiveChainHeight > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-stone-500',
             bg: 'bg-blue-100 dark:bg-blue-500/12',
           },
         ].map(({ label, value, color, bg, icon }) => (

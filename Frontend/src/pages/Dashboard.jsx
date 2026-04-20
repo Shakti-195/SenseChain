@@ -5,9 +5,10 @@ import {
 import {
   Activity, ShieldCheck, ShieldAlert, Search, Database, Globe, ChevronRight,
   Cpu, Sparkles, Thermometer, Droplets, Flame, X, Info,
-  Play, Pause, Terminal, Radio, Copy, Check, Zap, Heart, Blocks,
+  Play, Pause, Terminal, Radio, Copy, Check, Zap, Heart, Blocks, AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useBreach } from '../context/BreachContext';
 
 // ── LOCAL TIMEZONE TIMESTAMP (always matches PC clock) ──
 const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -80,6 +81,8 @@ const Dashboard = ({
   chainHeight = 0,
   refreshData = null,
 }) => {
+  const { virtualBreach, breachedBlock, setSimState, clearSim } = useBreach();
+
   const [searchTerm, setSearchTerm]     = useState('');
   const [copiedHash, setCopiedHash]     = useState(null);
   const [activeModal, setActiveModal]   = useState(null);
@@ -95,6 +98,14 @@ const Dashboard = ({
 
   // keep ref in sync
   simBlocksRef.current = simBlocks;
+
+  // ── Sync simulation state to global BreachContext so Security/Uplink can see it ──
+  useEffect(() => {
+    setSimState(isSimulating, simBlocks.length, simNode);
+  }, [isSimulating, simBlocks.length, simNode, setSimState]);
+
+  // Combined breach flag for UI
+  const isBreached = !integrity || virtualBreach;
 
   // ── NORMALIZE BLOCK INDEX ──
   const normalizedChain = useMemo(() => {
@@ -188,6 +199,7 @@ const Dashboard = ({
       setSimBlocks([]);
       setSimLogs([]);
       _simBlockCount = 0;
+      clearSim();
     }
   };
 
@@ -214,6 +226,39 @@ const Dashboard = ({
 
   return (
     <div className="page-wrapper space-y-6 custom-scrollbar">
+
+      {/* ── CRITICAL BREACH BANNER ── */}
+      <AnimatePresence>
+        {isBreached && (
+          <motion.div
+            initial={{ opacity: 0, y: -16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.98 }}
+            className="flex items-center gap-4 px-6 py-4 rounded-2xl bg-red-600 text-white shadow-2xl shadow-red-600/40 border border-red-500 breach-glow"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{ repeat: Infinity, duration: 0.8 }}
+            >
+              <AlertTriangle size={22} fill="currentColor" />
+            </motion.div>
+            <div className="flex-1">
+              <p className="font-bold text-sm tracking-wide">⚡ CRITICAL SECURITY ALERT — Blockchain Integrity Compromised</p>
+              <p className="text-[11px] text-red-200 mt-0.5">
+                {virtualBreach
+                  ? `Virtual attack detected at Block #${breachedBlock ?? '?'}. SHA-256 hash chain severed.`
+                  : 'Real chain integrity breach detected. Navigate to Security Terminal to repair.'}
+              </p>
+            </div>
+            <button
+              onClick={() => window.location.href = '/security'}
+              className="shrink-0 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border border-white/20"
+            >
+              Go to Security →
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── PAGE HEADER ── */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -245,11 +290,17 @@ const Dashboard = ({
         <StatCard title="Ledger Height" value={chainHeight + (isSimulating ? simBlocks.length : 0)} suffix="blocks" icon={<Database size={17} />} color="red"
           onClick={() => setActiveModal({ title: 'Ledger Height', val: chainHeight, desc: 'Total depth of the current cryptographic blockchain.' })} />
         <StatCard title="Node Stability" value={`${aiAnalysis.score}%`} suffix="health" icon={<Heart size={17} />}
-          color={aiAnalysis.score > 80 ? 'green' : 'red'} pulse={aiAnalysis.score < 80}
+          color={aiAnalysis.score > 80 && !isBreached ? 'green' : 'red'} pulse={aiAnalysis.score < 80 || isBreached}
           onClick={() => setActiveModal({ title: 'Node Stability', val: `${aiAnalysis.score}%`, desc: 'Based on cryptographic linkage consistency and data throughput.' })} />
-        <StatCard title="Security Status" value={integrity ? 'Secure' : 'Breached'} suffix={integrity ? 'SHA-256 OK' : 'ALERT'}
-          icon={integrity ? <ShieldCheck size={17} /> : <ShieldAlert size={17} />} color={integrity ? 'indigo' : 'red'}
-          onClick={() => setActiveModal({ title: 'Security', val: integrity ? 'Secure' : 'Critical', desc: 'Real-time SHA-256 hash linkage monitoring.' })} />
+        <StatCard
+          title="Security Status"
+          value={isBreached ? 'CRITICAL' : 'Secure'}
+          suffix={isBreached ? '⚡ ALERT' : 'SHA-256 OK'}
+          icon={isBreached ? <ShieldAlert size={17} /> : <ShieldCheck size={17} />}
+          color={isBreached ? 'red' : 'indigo'}
+          pulse={isBreached}
+          onClick={() => setActiveModal({ title: 'Security', val: isBreached ? 'Critical Alert' : 'Secure', desc: 'Real-time SHA-256 hash linkage monitoring.' })}
+        />
         <StatCard title="Packet Latency" value="0.14ms" suffix="interconnect" icon={<Zap size={17} />} color="violet"
           onClick={() => setActiveModal({ title: 'Latency', val: '0.14ms', desc: 'Propagation delay across neural network clusters.' })} />
       </div>

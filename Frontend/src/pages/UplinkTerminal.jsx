@@ -3,10 +3,11 @@ import {
   Cpu, Wifi, Terminal, CheckCircle2, RefreshCw,
   Smartphone, Copy, Activity, Bluetooth, Zap,
   Radio, Radar, ShieldCheck, Globe, Lock, Plug,
-  Plus, GitBranch, Signal,
+  Plus, GitBranch, Signal, ShieldAlert, AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import API from '../services/api';
+import { useBreach } from '../context/BreachContext';
 
 // ── LOCAL TIMEZONE ──
 const fmtTime = (ts) => {
@@ -82,6 +83,8 @@ const HandshakeModal = ({ node, onClose, onComplete }) => {
 
 // --- MAIN PAGE ---
 const UplinkTerminal = ({ activeNodes = {}, connError }) => {
+  const { virtualBreach, breachedBlock, isSimulating, simBlockCount, simNodeId } = useBreach();
+
   const [uplinkData, setUplinkData] = useState({ ip: '127.0.0.1', endpoint: '' });
   const [isScanning, setIsScanning] = useState(false);
   const [discoveredDevices, setDiscoveredDevices] = useState([]);
@@ -98,6 +101,20 @@ const UplinkTerminal = ({ activeNodes = {}, connError }) => {
   const addLog = useCallback((msg, type = 'info') => {
     setTerminalLogs(prev => [{ id: Date.now(), msg, type }, ...prev].slice(0, 8));
   }, []);
+
+  // Inject uplink log entries on breach/heal
+  useEffect(() => {
+    if (virtualBreach) {
+      addLog(`⚡ UPLINK ALERT: Block #${breachedBlock ?? '?'} compromised. Chain integrity severed.`, 'error');
+      addLog('[SEC]    Neural mesh entering lockdown protocol...', 'warn');
+    }
+  }, [virtualBreach]); // eslint-disable-line
+
+  useEffect(() => {
+    if (isSimulating) {
+      addLog(`[SIM]    Virtual node ${simNodeId} broadcasting ${simBlockCount} blocks`, 'info');
+    }
+  }, [isSimulating, simBlockCount]); // eslint-disable-line
 
   // Merge backend activeNodes with locally authorized ones
   const allAuthorized = { ...localAuthorized, ...activeNodes };
@@ -141,6 +158,34 @@ const UplinkTerminal = ({ activeNodes = {}, connError }) => {
 
   return (
     <div className="page-wrapper space-y-6 custom-scrollbar">
+
+      {/* ── BREACH UPLINK BANNER ── */}
+      <AnimatePresence>
+        {virtualBreach && (
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className="flex items-center gap-4 px-6 py-4 rounded-2xl bg-red-900/80 text-white shadow-2xl shadow-red-600/40 border border-red-500/60 breach-glow"
+          >
+            <motion.div animate={{ rotate: [0, 5, -5, 0] }} transition={{ repeat: Infinity, duration: 0.5 }}>
+              <ShieldAlert size={22} className="text-red-300" />
+            </motion.div>
+            <div className="flex-1">
+              <p className="font-bold text-sm">⚡ UPLINK COMPROMISED — Neural Mesh Under Attack</p>
+              <p className="text-[11px] text-red-300 mt-0.5">
+                Block #{breachedBlock ?? '?'} tampered. All node communications flagged. Go to Security Terminal to restore.
+              </p>
+            </div>
+            <button
+              onClick={() => window.location.href = '/security'}
+              className="shrink-0 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border border-white/20"
+            >
+              Security →
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
@@ -227,11 +272,16 @@ const UplinkTerminal = ({ activeNodes = {}, connError }) => {
           {/* Authorized Clusters */}
           <div className="glass-card rounded-[22px] p-6 md:p-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/12 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                <ShieldCheck size={18} />
+              <div className={`p-2.5 rounded-xl ${virtualBreach ? 'bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'}`}>
+                {virtualBreach ? <ShieldAlert size={18} /> : <ShieldCheck size={18} />}
               </div>
               <div>
-                <h3 className="font-bold text-sm" style={{ fontFamily: 'Space Grotesk' }}>Authorized Clusters</h3>
+                <h3 className="font-bold text-sm" style={{ fontFamily: 'Space Grotesk' }}>
+                  Authorized Clusters
+                  {virtualBreach && (
+                    <span className="ml-2 text-[8px] font-bold text-red-500 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wide animate-pulse">BREACH</span>
+                  )}
+                </h3>
                 <p className="text-[10px] text-stone-400">{Object.keys(allAuthorized).length} node{Object.keys(allAuthorized).length !== 1 ? 's' : ''} registered</p>
               </div>
             </div>
@@ -244,22 +294,28 @@ const UplinkTerminal = ({ activeNodes = {}, connError }) => {
                 </div>
               ) : Object.entries(allAuthorized).map(([id, info]) => (
                 <motion.div key={id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center justify-between p-4 bg-emerald-50/60 dark:bg-emerald-900/15 border border-emerald-200 dark:border-emerald-800/40 rounded-2xl">
+                  className={`flex items-center justify-between p-4 border rounded-2xl transition-all duration-500 ${
+                    virtualBreach
+                      ? 'bg-red-50/60 dark:bg-red-900/15 border-red-200 dark:border-red-800/40'
+                      : 'bg-emerald-50/60 dark:bg-emerald-900/15 border-emerald-200 dark:border-emerald-800/40'
+                  }`}>
                   <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-white dark:bg-white/6 rounded-xl text-emerald-500 border border-emerald-100 dark:border-white/5">
+                    <div className={`p-2.5 bg-white dark:bg-white/6 rounded-xl border ${virtualBreach ? 'text-red-500 border-red-100' : 'text-emerald-500 border-emerald-100'} dark:border-white/5`}>
                       <Smartphone size={18} />
                     </div>
                     <div>
                       <p className="font-bold text-sm font-mono">{id}</p>
                       <p className="text-[10px] text-stone-400 font-mono flex items-center gap-2">
-                        <Activity size={9} className="text-emerald-500 animate-pulse" />
-                        {info.status || 'Authorized'} · {info.mac || 'N/A'}
+                        <Activity size={9} className={virtualBreach ? 'text-red-500 animate-ping' : 'text-emerald-500 animate-pulse'} />
+                        {virtualBreach ? 'LINK COMPROMISED' : (info.status || 'Authorized')} · {info.mac || 'N/A'}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="inline-block px-3 py-1 bg-emerald-500 text-white text-[9px] font-black uppercase rounded-full shadow shadow-emerald-500/20 mb-1">
-                      Secured
+                    <span className={`inline-block px-3 py-1 text-white text-[9px] font-black uppercase rounded-full shadow mb-1 ${
+                      virtualBreach ? 'bg-red-500 shadow-red-500/20 animate-pulse' : 'bg-emerald-500 shadow-emerald-500/20'
+                    }`}>
+                      {virtualBreach ? 'Compromised' : 'Secured'}
                     </span>
                     <p className="text-[9px] text-stone-400 font-mono">{fmtTime(info.authorized_at)}</p>
                   </div>
