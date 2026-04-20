@@ -92,11 +92,9 @@ const Dashboard = ({
     return allZero ? chain.map((b, i) => ({ ...b, index: i })) : chain;
   }, [chain]);
 
-  // ── MERGE REAL CHAIN + VIRTUAL BLOCKS ──
-  const mergedChain = useMemo(() => {
-    if (virtualBlocks.length === 0) return normalizedChain;
-    return [...normalizedChain, ...virtualBlocks];
-  }, [normalizedChain, virtualBlocks]);
+  // ── LEDGER: only show virtualBlocks from paired nodes (no static backend data) ──
+  // When no nodes are paired, the ledger is empty (no phantom #0 block).
+  const mergedChain = useMemo(() => virtualBlocks, [virtualBlocks]);
 
   // ── AI ANALYSIS ──
   const aiAnalysis = useMemo(() => {
@@ -121,13 +119,10 @@ const Dashboard = ({
     return { status: anomalies.length > 0 ? 'Anomaly Detected' : 'Stable', message, score: Math.max(score, 0), anomalies };
   }, [mergedChain, isBreached, integrity, isSimulating, pairedNodes]);
 
-  // ── CHART DATA (last 30 blocks) ──
+  // ── CHART DATA (last 30 virtual blocks only, no static fallback) ──
   const telemetryData = useMemo(() => {
-    const src = mergedChain.filter(b => typeof b.index === 'number').slice(-30);
-    if (src.length === 0) return [
-      { label: '#0', temp: 22, humidity: 45 },
-      { label: '#1', temp: 24, humidity: 47 },
-    ];
+    const src = virtualBlocks.filter(b => typeof b.index === 'number').slice(-30);
+    if (src.length === 0) return [];
     const data = src.map(b => {
       let d = b.data;
       if (typeof d === 'string') { try { d = JSON.parse(d); } catch { d = {}; } }
@@ -155,20 +150,19 @@ const Dashboard = ({
       const norm = Math.max(0, Math.min(1, (temp - 18) / 24));
       return { temp, norm, nodeId: b._nodeId || 'chain', index: b.index };
     });
-  }, [mergedChain]);
+  }, [virtualBlocks]);
 
-  // ── FILTERED LEDGER ──
+  // ── FILTERED LEDGER (only virtual blocks from paired nodes) ──
   const filteredChain = useMemo(() => {
-    const src = mergedChain;
-    if (!src) return [];
+    if (!virtualBlocks.length) return [];
     const s = searchTerm.toLowerCase();
-    return src.filter(b =>
+    return virtualBlocks.filter(b =>
       String(b.index).includes(s) ||
       b.hash?.toLowerCase().includes(s) ||
       String(b.nonce || '').includes(s) ||
       fmtTime(b.timestamp).includes(s)
     );
-  }, [mergedChain, searchTerm]);
+  }, [virtualBlocks, searchTerm]);
 
   const handleCopy = useCallback((hash) => {
     navigator.clipboard.writeText(hash);
@@ -533,41 +527,44 @@ const Dashboard = ({
             </thead>
             <tbody className="divide-y divide-stone-50 dark:divide-white/3">
               {filteredChain.slice().reverse().map((block, rowIdx) => {
-                const isTampered = isBreached && block.index === breachedBlock;
+                // When breached → EVERY block in the ledger is corrupted
+                const isCorrupted = isBreached;
                 return (
                   <motion.tr layout key={block.hash || `r-${block.index}-${rowIdx}`}
                     className={`group transition-colors ${
-                      isTampered
-                        ? 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500'
-                        : block._virtual ? 'opacity-90 hover:bg-stone-50 dark:hover:bg-white/3'
+                      isCorrupted
+                        ? 'bg-red-50/60 dark:bg-red-900/15'
                         : 'hover:bg-stone-50 dark:hover:bg-white/3'
                     }`}>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className={`text-base font-bold font-mono ${isTampered ? 'text-red-600' : 'text-red-600 dark:text-red-400'}`}>
+                        <span className={`text-base font-bold font-mono ${isCorrupted ? 'text-red-500' : 'text-red-600 dark:text-red-400'}`}>
                           #{block.index}
                         </span>
-                        {isTampered && <span className="text-[8px] font-bold text-red-500 bg-red-500/10 border border-red-500/30 px-1.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">TAMPERED</span>}
-                        {block._virtual && !isTampered && (
-                          <span className="text-[8px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full uppercase tracking-wider">SIM</span>
+                        {isCorrupted && (
+                          <span className="text-[8px] font-bold text-red-500 bg-red-500/10 border border-red-500/30 px-1.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">CORRUPTED</span>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2.5 py-1 rounded-full bg-stone-100 dark:bg-white/6 text-stone-700 dark:text-stone-300 text-[10px] font-bold border border-stone-200 dark:border-white/10 font-mono">
-                        {isTampered ? '⚠ FORGED' : (block.nonce ?? '0')}
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border font-mono ${
+                        isCorrupted
+                          ? 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-700/30'
+                          : 'bg-stone-100 dark:bg-white/6 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-white/10'
+                      }`}>
+                        {isCorrupted ? '⚠ FORGED' : (block.nonce ?? '0')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-mono px-3 py-1.5 rounded-lg border truncate max-w-[240px] block transition-all ${
-                          isTampered
-                            ? 'text-red-400 line-through opacity-60 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/30'
-                            : 'text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-white/5 border-stone-150 dark:border-white/6'
+                          isCorrupted
+                            ? 'text-red-400 line-through opacity-50 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-700/30'
+                            : 'text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-white/5 border-stone-100 dark:border-white/6'
                         }`}>
-                          {isTampered ? 'HASH_CORRUPTED_XXXXXXXX...' : block.hash}
+                          {isCorrupted ? 'HASH_CORRUPTED_' + block.hash?.slice(2, 10).toUpperCase() + '...' : block.hash}
                         </span>
-                        {!isTampered && (
+                        {!isCorrupted && (
                           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                             onClick={() => handleCopy(block.hash)}
                             className="p-1.5 rounded-lg bg-white dark:bg-white/6 border border-stone-200 dark:border-white/8 text-stone-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shrink-0">
@@ -580,9 +577,12 @@ const Dashboard = ({
                       <p className="text-sm font-mono font-semibold tabular-nums">{fmtTime(block.timestamp)}</p>
                       <p className="text-[9px] text-stone-400 font-mono mt-0.5">{fmtDate(block.timestamp)}</p>
                       <p className={`text-[9px] font-bold uppercase tracking-wide mt-0.5 ${
-                        isTampered ? 'text-red-500' : block._virtual ? 'text-emerald-500' : (integrity ? 'text-emerald-500' : 'text-red-500')
+                        isCorrupted ? 'text-red-500' : 'text-emerald-500'
                       }`}>
-                        {isTampered ? '✗ Corrupted' : block._virtual ? `⚡ ${block._nodeId?.split('-')[0] ?? 'Virtual'}` : (integrity ? '✓ Verified' : '✗ Broken')}
+                        {isCorrupted
+                          ? '✗ Corrupted'
+                          : `✓ Verified · ${block._nodeId?.split('-')[0] ?? 'Node'}`
+                        }
                       </p>
                     </td>
                   </motion.tr>
