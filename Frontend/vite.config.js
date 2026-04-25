@@ -9,6 +9,7 @@ export default defineConfig({
     react()
   ],
   server: {
+    port: 5174,
     proxy: {
       // All backend routes proxied through Vite — eliminates CORS entirely
       '/api': {
@@ -23,6 +24,21 @@ export default defineConfig({
         secure: false,
       },
       '/ask_assistant': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/system_snapshot': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/ai_execute': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/chain': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,

@@ -229,15 +229,174 @@ async def repair_chain():
     await notify_clients()
     return {"status": "success", "message": "Neural Integrity Restored"}
 
+
+# =========================================================
+# 🤖 AI COMMAND BUS — Sense Brain executes system actions
+# =========================================================
+@app.post("/ai_execute")
+async def ai_execute(request: Request):
+    """Unified AI command bus. Sense Brain calls this to act on the system."""
+    import datetime
+    try:
+        body    = await request.json()
+        action  = body.get("action", "").strip().lower()
+        payload = body.get("payload", {})
+
+        now_str = datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S UTC")
+
+        # ── MINE / ADD BLOCK ──────────────────────────────────────────────
+        if action == "mine_block":
+            node_id = payload.get("node_id", "SENSE-AI-NODE")
+            sim_data = {
+                "temperature": round(payload.get("temperature", __import__('random').uniform(20, 30)), 2),
+                "humidity":    round(payload.get("humidity",    __import__('random').uniform(40, 70)), 2),
+                "device_id":   node_id,
+                "status":      "active",
+            }
+            with blockchain_lock:
+                new_block = blockchain.add_block(sim_data)
+                active_hardware_nodes[node_id] = {
+                    "status": "AI-Controlled", "last_sync": __import__('time').time(),
+                    "last_data": sim_data, "last_block_index": new_block.index
+                }
+            if db_instance.collection is not None:
+                await db_instance.collection.insert_one(serialize_block(new_block))
+            await notify_clients()
+            return {
+                "action": "mine_block", "status": "success",
+                "message": f"Block #{new_block.index} mined by AI at {now_str}. Hash: {new_block.hash[:20]}...",
+                "data": {"index": new_block.index, "hash": new_block.hash, "node": node_id,
+                         "temperature": sim_data["temperature"], "humidity": sim_data["humidity"]}
+            }
+
+        # ── REPAIR CHAIN ─────────────────────────────────────────────────
+        elif action == "repair_chain":
+            with blockchain_lock:
+                blockchain.repair_chain()
+            if db_instance.collection is not None:
+                await db_instance.collection.delete_many({})
+                if blockchain.chain:
+                    await db_instance.collection.insert_many([serialize_block(b) for b in blockchain.chain])
+            await notify_clients()
+            return {
+                "action": "repair_chain", "status": "success",
+                "message": f"Chain repaired at {now_str}. All {len(blockchain.chain)} blocks re-verified.",
+                "data": {"chain_length": len(blockchain.chain)}
+            }
+
+        # ── TAMPER BLOCK ─────────────────────────────────────────────────
+        elif action == "tamper_block":
+            index = int(payload.get("index", 1))
+            temp  = float(payload.get("temperature", 999.9))
+            with blockchain_lock:
+                if not (0 <= index < len(blockchain.chain)):
+                    return {"action": "tamper_block", "status": "error",
+                            "message": f"Block #{index} does not exist. Chain has {len(blockchain.chain)} blocks."}
+                block = blockchain.chain[index]
+                if not isinstance(block.data, dict):
+                    block.data = {"message": str(block.data), "temperature": 0, "humidity": 0, "status": "tampered"}
+                block.data["temperature"] = temp
+                blockchain.is_chain_valid()
+            if db_instance.collection is not None:
+                await db_instance.collection.update_one({"index": index}, {"$set": {"data": block.data}})
+            await notify_clients()
+            return {
+                "action": "tamper_block", "status": "success",
+                "message": f"Block #{index} tampered at {now_str}. Temperature set to {temp}°C. Chain integrity now BREACHED.",
+                "data": {"index": index, "temperature": temp}
+            }
+
+        # ── STOP NODE ────────────────────────────────────────────────────
+        elif action == "stop_node":
+            node_id = payload.get("node_id", "")
+            with blockchain_lock:
+                removed = node_id in active_hardware_nodes
+                if removed:
+                    del active_hardware_nodes[node_id]
+            await notify_clients()
+            return {
+                "action": "stop_node", "status": "success" if removed else "warning",
+                "message": f"Node {node_id} {'terminated' if removed else 'was not active'} at {now_str}.",
+                "data": {"node_id": node_id, "was_active": removed}
+            }
+
+        # ── RESET LEDGER ─────────────────────────────────────────────────
+        elif action == "reset_ledger":
+            with blockchain_lock:
+                blockchain.chain = []
+                genesis = blockchain.create_genesis_block()
+                blockchain.save_chain()
+            if db_instance.collection is not None:
+                await db_instance.collection.delete_many({})
+                await db_instance.collection.insert_one(serialize_block(genesis))
+            await notify_clients()
+            return {
+                "action": "reset_ledger", "status": "success",
+                "message": f"Ledger reset at {now_str}. Genesis block created. All data cleared.",
+                "data": {"chain_length": 1}
+            }
+
+        # ── SET DIFFICULTY ───────────────────────────────────────────────
+        elif action == "set_difficulty":
+            level = int(payload.get("level", 3))
+            level = max(1, min(5, level))
+            with blockchain_lock:
+                blockchain.difficulty = level
+            return {
+                "action": "set_difficulty", "status": "success",
+                "message": f"Mining difficulty set to {level} at {now_str}. Changes take effect on next block.",
+                "data": {"difficulty": level}
+            }
+
+        # ── GET SNAPSHOT ─────────────────────────────────────────────────
+        elif action == "get_snapshot":
+            chain  = blockchain.chain
+            valid  = blockchain.is_chain_valid()
+            recent = [b for b in chain if isinstance(b.data, dict)][-10:]
+            temps  = [b.data.get("temperature") for b in recent if b.data.get("temperature") is not None]
+            hums   = [b.data.get("humidity")    for b in recent if b.data.get("humidity")    is not None]
+            return {
+                "action": "get_snapshot", "status": "success",
+                "message": f"System snapshot captured at {now_str}.",
+                "data": {
+                    "chain_length": len(chain),
+                    "integrity": "SECURE" if valid else "BREACH DETECTED",
+                    "difficulty": blockchain.difficulty,
+                    "active_nodes": len(active_hardware_nodes),
+                    "nodes": list(active_hardware_nodes.keys()),
+                    "avg_temperature": round(sum(temps)/len(temps), 2) if temps else None,
+                    "avg_humidity":    round(sum(hums)/len(hums),   2) if hums  else None,
+                }
+            }
+
+        else:
+            return {"action": action, "status": "error",
+                    "message": f"Unknown action '{action}'. Supported: mine_block, repair_chain, tamper_block, stop_node, reset_ledger, set_difficulty, get_snapshot"}
+
+    except Exception as e:
+        logger.error(f"AI Execute Error: {e}")
+        return {"action": body.get("action", "?"), "status": "error", "message": str(e)}
+
+
 @app.post("/ask_assistant")
 async def ask_assistant(request: Request):
     try:
-        req_data  = await request.json()
-        raw_q     = req_data.get("question", "").strip()
-        deep_srch = req_data.get("deep_search", False)
+        req_data     = await request.json()
+        raw_q        = req_data.get("question", "").strip()
+        deep_srch    = req_data.get("deep_search", False)
+        sys_ctx      = req_data.get("system_context", "")  # live system data injected by frontend
 
         if not raw_q:
             return {"reply": "Please ask me something!", "status": "error"}
+
+        # Enrich question with live system context when provided
+        enriched_q = raw_q
+        if sys_ctx:
+            enriched_q = (
+                f"[LIVE SENSECHAIN SYSTEM DATA]\n{sys_ctx}\n"
+                f"[END SYSTEM DATA]\n\n"
+                f"Using the live system data above, answer this question accurately:\n{raw_q}"
+            )
 
         # ── DEEP SEARCH: all queries go through Google automatically ─────────
         if deep_srch:
@@ -272,7 +431,7 @@ async def ask_assistant(request: Request):
                     from chat_with_sense import generate_response as gr
                 except ImportError:
                     from app.chat_with_sense import generate_response as gr
-                res = gr(raw_q)
+                res = gr(enriched_q)
                 ai  = res[0] if isinstance(res, (tuple, list)) else res
                 logger.warning(f"Deep search fallback triggered. Search returned: {web}")
                 return f"[Search unavailable - using local knowledge]\n\n{ai}"
@@ -281,7 +440,7 @@ async def ask_assistant(request: Request):
             return {"reply": str(reply).strip(), "status": "success", "source": "deep_search"}
 
         # ── STANDARD local AI ─────────────────────────────────────────────────
-        result   = await asyncio.wait_for(run_in_threadpool(generate_response, raw_q), timeout=25.0)
+        result   = await asyncio.wait_for(run_in_threadpool(generate_response, enriched_q), timeout=25.0)
         ai_reply = result[0] if isinstance(result, (tuple, list)) else result
         return {"reply": str(ai_reply).replace("*", "").strip(), "status": "success", "source": "local_ai"}
 
@@ -431,6 +590,61 @@ async def get_chain():
 async def validate_integrity():
     valid = blockchain.is_chain_valid()
     return {"status": valid}
+
+
+@app.get("/system_snapshot")
+async def system_snapshot():
+    """Full live system snapshot for Sense Brain AI context injection."""
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc)
+    chain   = blockchain.chain
+    valid   = blockchain.is_chain_valid()
+    length  = len(chain)
+
+    # Analytics: averages from last 20 data blocks
+    recent  = [b for b in chain if isinstance(b.data, dict)][-20:]
+    temps   = [b.data.get('temperature', 0) for b in recent if b.data.get('temperature') is not None]
+    hums    = [b.data.get('humidity', 0)    for b in recent if b.data.get('humidity')    is not None]
+    avg_temp = round(sum(temps) / len(temps), 2) if temps else None
+    avg_hum  = round(sum(hums)  / len(hums),  2) if hums  else None
+
+    # Last 5 blocks summary
+    last5 = []
+    for b in chain[-5:]:
+        bd = b.data if isinstance(b.data, dict) else {}
+        last5.append({
+            "index":       b.index,
+            "hash":        b.hash[:20] + "...",
+            "temperature": bd.get('temperature'),
+            "humidity":    bd.get('humidity'),
+            "device_id":   bd.get('device_id', 'N/A'),
+            "status":      bd.get('status', 'N/A'),
+        })
+
+    # Node summary
+    nodes_summary = [
+        {
+            "id":     nid,
+            "status": info.get("status"),
+            "mac":    info.get("mac", "N/A"),
+            "last_sync_ago_sec": round(now.timestamp() - info.get("last_sync", now.timestamp())),
+        }
+        for nid, info in active_hardware_nodes.items()
+    ]
+
+    return {
+        "timestamp_utc":      now.isoformat(),
+        "chain_length":       length,
+        "integrity":          "SECURE" if valid else "BREACH DETECTED",
+        "difficulty":         blockchain.difficulty,
+        "active_nodes":       len(active_hardware_nodes),
+        "nodes":              nodes_summary,
+        "avg_temperature_c":  avg_temp,
+        "avg_humidity_pct":   avg_hum,
+        "recent_blocks_count":len(recent),
+        "last_5_blocks":      last5,
+        "platform":           "SenseChain Neural Infrastructure v12.5",
+    }
 
 
 @app.get("/export_pdf")

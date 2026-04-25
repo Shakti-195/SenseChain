@@ -2,9 +2,140 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Send, Bot, User, X, ChevronDown, MessageSquare, Mic,
   Settings, Headset, History, PlusCircle, Maximize2, Radio, Zap,
-  AudioLines, Trash2, Volume2, VolumeX, MicOff, Sparkles, Globe,
+  AudioLines, Trash2, Volume2, VolumeX, Sparkles, Globe, Search,
+  Shield, Activity, BarChart2, Cpu, Link, HelpCircle, Database,
+  Terminal, Hammer, RefreshCw, AlertTriangle, CheckCircle2, XCircle,
+  Pickaxe, StopCircle, SlidersHorizontal, Eye,
 } from 'lucide-react';
 import API from '../services/api';
+
+// ── Rotating placeholder text ──
+const PLACEHOLDERS = [
+  'Ask about your blockchain integrity...',
+  'Mine a block — just say "mine a block"',
+  'Is my IoT node secure right now?',
+  'Repair the chain — say "repair chain"',
+  'Show me a security analysis...',
+  'Set difficulty to 3 — say "set difficulty 3"',
+];
+
+// ── Quick-prompt chips shown on empty chat ──
+const QUICK_PROMPTS = [
+  { icon: Shield,     label: 'Chain Integrity',    text: 'Check the blockchain integrity and tell me if there are any breaches.',  google: false },
+  { icon: Activity,   label: 'Live Status',         text: 'Get a full system snapshot',                                             google: false },
+  { icon: Cpu,        label: 'Node Health',         text: 'Analyze the health of all connected IoT nodes.',                        google: false },
+  { icon: Pickaxe,    label: 'Mine a Block',        text: 'mine a block',                                                           google: false },
+  { icon: RefreshCw,  label: 'Repair Chain',        text: 'repair chain',                                                           google: false },
+  { icon: BarChart2,  label: 'Analytics Summary',   text: 'Give me a summary of the latest analytics data.',                       google: false },
+  { icon: HelpCircle, label: 'Getting Started',     text: 'How do I get started with SenseChain as a new user?',                   google: false },
+  { icon: Globe,      label: 'Search: IoT Security',text: 'IoT security best practices 2025',                                       google: true  },
+];
+
+// ── COMMAND REGISTRY ──
+// Maps natural language intent to a backend action
+const COMMAND_REGISTRY = [
+  {
+    patterns: [/mine a? ?block/i, /add a? ?block/i, /create a? ?block/i, /start (a )?node/i, /simulate node/i],
+    action: 'mine_block',
+    icon: Pickaxe,
+    color: 'violet',
+    buildPayload: (input) => {
+      const nodeMatch = input.match(/node[\s-]*(\S+)/i);
+      return { node_id: nodeMatch ? nodeMatch[1].toUpperCase() : 'SENSE-AI-NODE' };
+    },
+  },
+  {
+    patterns: [/repair (the )?chain/i, /fix (the )?chain/i, /restore integrity/i, /heal (the )?chain/i],
+    action: 'repair_chain',
+    icon: RefreshCw,
+    color: 'emerald',
+    buildPayload: () => ({}),
+  },
+  {
+    patterns: [/check (integrity|security|chain)/i, /validate (chain|integrity)/i, /is (the )?chain (secure|safe|ok)/i],
+    action: 'get_snapshot',
+    icon: Shield,
+    color: 'blue',
+    buildPayload: () => ({}),
+  },
+  {
+    patterns: [/(get|show|fetch) (a )?snapshot/i, /system (status|data|snapshot)/i, /what is the (current )?(live )?status/i, /full system/i],
+    action: 'get_snapshot',
+    icon: Eye,
+    color: 'blue',
+    buildPayload: () => ({}),
+  },
+  {
+    patterns: [/set difficulty (to )?([1-5])/i, /change difficulty (to )?([1-5])/i, /difficulty ([1-5])/i],
+    action: 'set_difficulty',
+    icon: SlidersHorizontal,
+    color: 'amber',
+    buildPayload: (input) => {
+      const m = input.match(/([1-5])/);
+      return { level: m ? parseInt(m[1]) : 3 };
+    },
+  },
+  {
+    patterns: [/tamper block #?(\d+)/i, /corrupt block #?(\d+)/i, /breach block #?(\d+)/i],
+    action: 'tamper_block',
+    icon: AlertTriangle,
+    color: 'red',
+    buildPayload: (input) => {
+      const m = input.match(/(\d+)/);
+      return { index: m ? parseInt(m[1]) : 1, temperature: 999.9 };
+    },
+  },
+  {
+    patterns: [/stop node (\S+)/i, /kill node (\S+)/i, /remove node (\S+)/i, /disconnect node (\S+)/i],
+    action: 'stop_node',
+    icon: StopCircle,
+    color: 'rose',
+    buildPayload: (input) => {
+      const m = input.match(/node[\s-]*(\S+)/i);
+      return { node_id: m ? m[1].toUpperCase() : '' };
+    },
+  },
+  {
+    patterns: [/reset (the )?(ledger|chain|blockchain)/i, /clear (the )?(ledger|chain|all blocks)/i, /wipe (the )?ledger/i],
+    action: 'reset_ledger',
+    icon: Trash2,
+    color: 'red',
+    buildPayload: () => ({}),
+  },
+  {
+    patterns: [/list (active )?nodes/i, /show (all )?nodes/i, /which nodes/i, /what nodes/i, /how many nodes/i],
+    action: 'get_snapshot',
+    icon: Cpu,
+    color: 'blue',
+    buildPayload: () => ({}),
+  },
+];
+
+// ── Execute an AI command against the backend ──
+const executeAICommand = async (action, payload) => {
+  const res = await fetch('/ai_execute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, payload }),
+  });
+  return res.json();
+};
+
+// ── Format action result as a rich text reply ──
+const formatActionResult = (result) => {
+  const status = result.status === 'success' ? '✅' : result.status === 'warning' ? '⚠️' : '❌';
+  const lines = [`${status} ${result.message}`];
+  if (result.data && Object.keys(result.data).length) {
+    lines.push('');
+    lines.push('SYSTEM DATA:');
+    for (const [k, v] of Object.entries(result.data)) {
+      if (v === null || v === undefined) continue;
+      const label = k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      lines.push(`  ${label}: ${Array.isArray(v) ? (v.length ? v.join(', ') : 'None') : v}`);
+    }
+  }
+  return lines.join('\n');
+};
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || window.location.origin;
 
@@ -30,8 +161,13 @@ const AIAssistant = () => {
   const [isThinking, setIsThinking] = useState(false);
   const [isVoiceWriting, setIsVoiceWriting] = useState(false);
   const [isGoogleSearching, setIsGoogleSearching] = useState(false);
-  // Google Search Mode: when ON, ALL messages go to Google automatically
+  // Google Search Mode
   const [googleMode, setGoogleMode] = useState(() => localStorage.getItem('sc-google-mode') === 'true');
+  // System Access Mode — fetches live system data before every AI query
+  const [systemAccess, setSystemAccess] = useState(() => localStorage.getItem('sc-system-access') === 'true');
+  const [systemSnapshot, setSystemSnapshot] = useState(null);
+  const [snapLoading, setSnapLoading] = useState(false);
+  const systemAccessRef = useRef(localStorage.getItem('sc-system-access') === 'true');
 
   // Voice state
   const [selectedVoiceName, setSelectedVoiceName] = useState('');
@@ -80,6 +216,7 @@ const AIAssistant = () => {
   useEffect(() => { activeSessionIdRef.current = activeSessionId; }, [activeSessionId]);
   useEffect(() => { isLiveModeRef.current = isLiveMode; }, [isLiveMode]);
   useEffect(() => { googleModeRef.current = googleMode; }, [googleMode]);
+  useEffect(() => { systemAccessRef.current = systemAccess; }, [systemAccess]);
 
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
 
@@ -234,6 +371,45 @@ const AIAssistant = () => {
     }
   };
 
+  // ── FETCH LIVE SYSTEM SNAPSHOT ──
+  const fetchSystemContext = useCallback(async () => {
+    if (!systemAccessRef.current) return '';
+    try {
+      const res = await fetch('/system_snapshot');
+      if (!res.ok) return '';
+      const d = await res.json();
+      setSystemSnapshot(d);
+      return (
+        `Platform: ${d.platform}\n` +
+        `Timestamp: ${d.timestamp_utc}\n` +
+        `Chain Length: ${d.chain_length} blocks\n` +
+        `Integrity: ${d.integrity}\n` +
+        `PoW Difficulty: ${d.difficulty}\n` +
+        `Active Nodes: ${d.active_nodes}\n` +
+        (d.nodes.length ? `Nodes: ${d.nodes.map(n => `${n.id} [${n.status}]`).join(', ')}\n` : '') +
+        (d.avg_temperature_c !== null ? `Avg Temperature: ${d.avg_temperature_c}°C\n` : '') +
+        (d.avg_humidity_pct  !== null ? `Avg Humidity: ${d.avg_humidity_pct}%\n`    : '') +
+        `Recent Blocks Analysed: ${d.recent_blocks_count}\n` +
+        `Last 5 Blocks:\n` +
+        d.last_5_blocks.map(b =>
+          `  Block #${b.index}: temp=${b.temperature}°C, hum=${b.humidity}%, device=${b.device_id}, hash=${b.hash}`
+        ).join('\n')
+      );
+    } catch {
+      return '';
+    }
+  }, []);
+
+  // Auto-fetch snapshot when System Access is toggled ON
+  useEffect(() => {
+    if (systemAccess) {
+      setSnapLoading(true);
+      fetchSystemContext().finally(() => setSnapLoading(false));
+    } else {
+      setSystemSnapshot(null);
+    }
+  }, [systemAccess, fetchSystemContext]);
+
   const handleSend = async () => {
     const trimmed = input.trim();
     const now = Date.now();
@@ -241,20 +417,46 @@ const AIAssistant = () => {
     lastRequestTimeRef.current = now;
     const sid = activeSessionId;
 
+    // Add user message
     setSessions(prev => prev.map(s => s.id === sid
       ? { ...s, messages: [...s.messages, { role: 'user', text: trimmed, id: now }] } : s));
     setInput('');
     setIsThinking(true);
 
+    // ── COMMAND DETECTION: try to match a system action first ──
+    const matched = COMMAND_REGISTRY.find(cmd => cmd.patterns.some(p => p.test(trimmed)));
+    if (matched) {
+      try {
+        const payload  = matched.buildPayload(trimmed);
+        const result   = await executeAICommand(matched.action, payload);
+        const reply    = formatActionResult(result);
+        setSessions(prev => prev.map(s => s.id === sid
+          ? { ...s, messages: [...s.messages, {
+              role: 'assistant', text: reply, id: Date.now() + 1,
+              isAction: true, actionStatus: result.status, actionIcon: matched.action,
+            }] } : s));
+      } catch {
+        setSessions(prev => prev.map(s => s.id === sid
+          ? { ...s, messages: [...s.messages, {
+              role: 'assistant', text: 'Failed to execute command. Make sure the backend is running.',
+              id: Date.now() + 1,
+            }] } : s));
+      }
+      setIsThinking(false);
+      return;
+    }
+
     if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
 
+    // Fetch live system context if System Access is ON
+    const sysCtx = await fetchSystemContext();
+
     try {
-      // googleMode is read directly from state — handleSend is re-created every render
-      // so it always captures the latest value (no stale closure here)
-      const res = await API.post('/ask_assistant', { question: trimmed, deep_search: googleMode }, {
-        signal: abortControllerRef.current.signal
-      });
+      const res = await API.post('/ask_assistant',
+        { question: trimmed, deep_search: googleMode, system_context: sysCtx },
+        { signal: abortControllerRef.current.signal }
+      );
       const reply = res.data?.reply || 'No response.';
       if (activeSessionIdRef.current !== sid) return;
       setSessions(prev => prev.map(s => s.id === sid
@@ -294,11 +496,12 @@ const AIAssistant = () => {
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
-
+    const sysCtx = await fetchSystemContext();
     try {
-      const res = await API.post('/ask_assistant', { question: trimmed, deep_search: true }, {
-        signal: abortControllerRef.current.signal
-      });
+      const res = await API.post('/ask_assistant',
+        { question: trimmed, deep_search: true, system_context: sysCtx },
+        { signal: abortControllerRef.current.signal }
+      );
       const reply = res.data?.reply || 'No Google results found.';
       if (activeSessionIdRef.current !== sid) return;
       setSessions(prev => prev.map(s => s.id === sid
@@ -450,8 +653,27 @@ const AIAssistant = () => {
               </div>
 
               <div className="flex items-center gap-1">
+                {/* System Access Toggle */}
                 <button
-                  onClick={toggleLiveMode}
+                  onClick={() => {
+                    const next = !systemAccess;
+                    setSystemAccess(next);
+                    systemAccessRef.current = next;
+                    localStorage.setItem('sc-system-access', String(next));
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all text-[10px] font-bold border ${
+                    systemAccess
+                      ? isDark
+                        ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+                        : 'bg-violet-100 border-violet-300 text-violet-700'
+                      : `${subText} border-transparent hover:${subBg}`
+                  }`}
+                  title={systemAccess ? 'System Access ON — AI reads live data' : 'System Access OFF — click to enable'}
+                >
+                  <Database size={12} className={systemAccess ? (isDark ? 'text-violet-400' : 'text-violet-600') : ''} />
+                  <span className="hidden sm:block">SYS</span>
+                </button>
+                <button onClick={toggleLiveMode}
                   className={`p-2 rounded-xl transition-all ${isLiveMode ? 'bg-red-600 text-white' : `${subText} hover:bg-red-50 dark:hover:bg-red-500/10`}`}
                   title="Voice Mode"
                 >
@@ -463,6 +685,32 @@ const AIAssistant = () => {
                 <button onClick={() => setIsOpen(false)} className={`p-2 rounded-xl transition-all ${subText} hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-500`}><ChevronDown size={18} /></button>
               </div>
             </div>
+
+            {/* ── SYSTEM ACCESS BANNER ── */}
+            {systemAccess && (
+              <div className={`px-4 py-1.5 flex items-center gap-3 text-[10px] font-semibold border-b shrink-0 ${
+                isDark
+                  ? 'bg-violet-500/10 border-violet-500/15 text-violet-300'
+                  : 'bg-violet-50 border-violet-200 text-violet-700'
+              }`}>
+                <Database size={10} className="shrink-0 animate-pulse" />
+                {snapLoading ? (
+                  <span>Syncing system data...</span>
+                ) : systemSnapshot ? (
+                  <span className="flex items-center gap-3 flex-wrap">
+                    <span className={`font-black ${
+                      systemSnapshot.integrity === 'SECURE' ? 'text-emerald-500' : 'text-red-500'
+                    }`}>{systemSnapshot.integrity}</span>
+                    <span>{systemSnapshot.chain_length} blocks</span>
+                    <span>{systemSnapshot.active_nodes} node{systemSnapshot.active_nodes !== 1 ? 's' : ''}</span>
+                    {systemSnapshot.avg_temperature_c !== null && <span>{systemSnapshot.avg_temperature_c}°C avg</span>}
+                    <span className={isDark ? 'text-violet-400 opacity-60' : 'text-violet-500 opacity-70'}>System Access ON</span>
+                  </span>
+                ) : (
+                  <span>System Access ON — live data injected on each query</span>
+                )}
+              </div>
+            )}
 
             {/* ── LIVE VOICE UI ── */}
             {isLiveMode ? (
@@ -545,9 +793,32 @@ const AIAssistant = () => {
                 {/* ── CHAT MESSAGES ── */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                   <div className={isMaximized ? 'max-w-3xl mx-auto' : ''}>
-                    {activeSession.messages.length === 0 && (
-                      <div className={`flex flex-col items-center justify-center h-40 text-sm ${subText} opacity-40`}>
-                        <Sparkles size={24} className="mb-2" /> Ask anything about your blockchain
+                    {activeSession.messages.every(m => m.id === 'init') && (
+                      <div className="px-4 pt-3 pb-2">
+                        {/* Quick-prompt chips */}
+                        <p className={`text-[10px] font-bold uppercase tracking-widest mb-2.5 px-0.5 ${subText} opacity-50`}>Quick Actions</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {QUICK_PROMPTS.map(({ icon: Icon, label, text: promptText, google }) => (
+                            <button
+                              key={label}
+                              onClick={() => setInput(promptText)}
+                              className={`flex items-center gap-2 text-left px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                                google
+                                  ? isDark
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'
+                                    : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                                  : isDark
+                                    ? 'bg-white/4 border-white/8 text-white/70 hover:bg-white/8 hover:border-white/16 hover:text-white'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-900'
+                              }`}
+                            >
+                              <Icon size={13} className="shrink-0" style={{ color: google ? '#10b981' : 'var(--th-primary, #dc2626)' }} />
+                              <span className="truncate">{label}</span>
+                              {google && <span className="ml-auto text-[8px] font-black uppercase tracking-widest opacity-60">Web</span>}
+                            </button>
+                          ))}
+                        </div>
+                        <p className={`text-center text-[9px] mt-3 ${subText} opacity-30 uppercase tracking-widest`}>or type your own below</p>
                       </div>
                     )}
                     {activeSession.messages.map(msg => (
@@ -601,78 +872,24 @@ const AIAssistant = () => {
 
                 {/* ── INPUT ── */}
                 <div className={`border-t shrink-0 ${sectionBorder}`}>
-
-                  {/* Google Mode Banner - shown when mode is ON */}
-                  {googleMode && (
-                    <div className={`flex items-center gap-2 px-4 py-1.5 text-[10px] font-bold ${
-                      isDark
-                        ? 'bg-emerald-500/12 text-emerald-400 border-b border-emerald-500/15'
-                        : 'bg-emerald-50 text-emerald-700 border-b border-emerald-200'
-                    }`}>
-                      <Globe size={10} className="shrink-0 animate-pulse" />
-                      <span>Google Search Mode ON — every message searches Google</span>
-                    </div>
-                  )}
-
                   <div className={`p-4 ${isMaximized ? 'max-w-3xl mx-auto' : ''}`}>
 
-                    {/* Google Mode Toggle Row */}
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <button
-                        onClick={() => {
-                          const next = !googleMode;
-                          setGoogleMode(next);
-                          googleModeRef.current = next; // sync ref immediately — don't wait for useEffect
-                          localStorage.setItem('sc-google-mode', String(next));
-                        }}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${
-                          googleMode
-                            ? isDark
-                              ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
-                              : 'bg-emerald-100 border-emerald-300 text-emerald-700'
-                            : isDark
-                              ? 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'
-                              : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
-                        }`}
-                        title={googleMode ? 'Google Mode ON — click to turn OFF' : 'Google Mode OFF — click to turn ON'}
-                      >
-                        {/* Switch track */}
-                        <span className={`relative inline-flex w-7 h-3.5 rounded-full transition-all ${
-                          googleMode ? 'bg-emerald-500' : isDark ? 'bg-white/20' : 'bg-slate-300'
-                        }`}>
-                          <span className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow transition-all ${
-                            googleMode ? 'left-[14px]' : 'left-0.5'
-                          }`} />
-                        </span>
-                        <Globe size={10} className={googleMode ? 'text-emerald-500' : ''} />
-                        Google Mode {googleMode ? 'ON' : 'OFF'}
-                      </button>
-
-                      {googleMode && (
-                        <span className={`text-[9px] px-2 py-1 rounded-full font-medium ${
-                          isDark ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600'
-                        }`}>
-                          All messages → Google
-                        </span>
-                      )}
-                    </div>
-
                     {/* Input Box */}
-                    <div className={`flex items-end gap-2.5 rounded-2xl border transition-all ${
-                      googleMode
-                        ? isDark ? 'bg-white/4 border-emerald-500/25' : 'bg-emerald-50/60 border-emerald-300'
-                        : isDark ? 'bg-white/4 border-white/8' : 'bg-slate-50 border-slate-200'
-                    } px-4 py-3`}>
-                      <textarea
-                        rows={1}
+                    <div className={`flex items-end gap-2 rounded-2xl border transition-all ${
+                      isDark ? 'bg-white/4 border-white/8' : 'bg-slate-50 border-slate-200'
+                    } px-3 py-3`}>
+                      {/* Rotating textarea */}
+                      <RotatingPlaceholderInput
                         value={input}
-                        onChange={e => setInput(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
-                        placeholder={googleMode ? 'Type anything — Google will search automatically...' : 'Ask Sense Brain...'}
-                        className={`flex-1 bg-transparent outline-none resize-none text-sm font-medium ${text} placeholder:${subText}`}
-                        style={{ maxHeight: 120 }}
+                        onChange={setInput}
+                        onSend={handleSend}
+                        googleMode={googleMode}
+                        isDark={isDark}
+                        text={text}
+                        subText={subText}
                       />
-                      <div className="flex gap-1.5 items-center shrink-0">
+                      {/* Buttons */}
+                      <div className="flex gap-1.5 items-center shrink-0 pb-0.5">
                         {/* Mic */}
                         <button
                           onClick={startVoiceInput}
@@ -681,46 +898,40 @@ const AIAssistant = () => {
                         >
                           <Mic size={15} />
                         </button>
-
-                        {/* One-time Google Search (only shown when mode is OFF) */}
-                        {!googleMode && (
-                          <button
-                            onClick={handleGoogleSearch}
-                            disabled={!input.trim() || isThinking || isGoogleSearching}
-                            className={`p-2 rounded-xl transition-all active:scale-95 disabled:opacity-30 ${
-                              isGoogleSearching
-                                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 animate-pulse'
-                                : isDark
-                                  ? 'bg-white/8 text-emerald-400 hover:bg-emerald-500/20'
-                                  : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                            }`}
-                            title="Search Google once"
-                          >
-                            <Globe size={15} />
-                          </button>
-                        )}
-
-                        {/* Send button — colour changes with mode */}
+                        {/* Globe — always visible for one-shot Google search */}
+                        <button
+                          onClick={handleGoogleSearch}
+                          disabled={!input.trim() || isThinking || isGoogleSearching}
+                          className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all active:scale-95 disabled:opacity-30 text-xs font-semibold ${
+                            isGoogleSearching
+                              ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 animate-pulse'
+                              : isDark
+                                ? 'bg-white/8 text-emerald-400 hover:bg-emerald-500/20'
+                                : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                          }`}
+                          title={input.trim() ? `Search Google for: "${input.trim()}"` : 'Search Google'}
+                        >
+                          <Globe size={14} />
+                          {input.trim()
+                            ? <span className="max-w-[70px] truncate hidden sm:block text-[10px]">Search: {input.trim().slice(0,18)}{input.trim().length>18?'…':''}</span>
+                            : <span className="hidden sm:block text-[10px]">Web</span>
+                          }
+                        </button>
+                        {/* Send to Sense Brain */}
                         <button
                           onClick={handleSend}
                           disabled={!input.trim() || isThinking || isGoogleSearching}
-                          className={`p-2 rounded-xl text-white shadow-md transition-all active:scale-95 disabled:opacity-30 ${
-                            googleMode
-                              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/25 hover:shadow-emerald-500/40'
-                              : 'bg-gradient-to-br from-red-600 to-rose-700 shadow-red-600/20 hover:shadow-red-600/40'
-                          }`}
-                          title={googleMode ? 'Search Google' : 'Send to AI'}
+                          className="p-2 rounded-xl text-white shadow-md transition-all active:scale-95 disabled:opacity-30 bg-gradient-to-br from-red-600 to-rose-700 shadow-red-600/20 hover:shadow-red-600/40"
+                          title="Send to Sense Brain"
                         >
-                          {googleMode ? <Globe size={15} /> : <Send size={15} />}
+                          <Send size={15} />
                         </button>
                       </div>
                     </div>
 
-                    {/* Hint */}
+                    {/* Hint row */}
                     <div className={`flex gap-3 mt-1.5 px-1 text-[9px] ${subText} opacity-40`}>
-                      {googleMode
-                        ? <span>Google Mode ON — Enter or → both search Google</span>
-                        : <><span>Globe = Google once</span><span>Arrow = Sense Brain AI</span></>}
+                      <span>Globe = Search Google</span><span>·</span><span>Arrow = Ask Sense Brain</span>
                     </div>
                   </div>
                 </div>
@@ -803,6 +1014,45 @@ const AIAssistant = () => {
         </div>
       )}
     </>
+  );
+};
+
+// ── ROTATING PLACEHOLDER INPUT ──
+const RotatingPlaceholderInput = ({ value, onChange, onSend, googleMode, isDark, text, subText }) => {
+  const [phIdx, setPhIdx] = useState(0);
+  const [fade, setFade]   = useState(true);
+
+  useEffect(() => {
+    if (value) return; // don't cycle when user is typing
+    const id = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setPhIdx(i => (i + 1) % PLACEHOLDERS.length);
+        setFade(true);
+      }, 300);
+    }, 3000);
+    return () => clearInterval(id);
+  }, [value]);
+
+  const placeholder = googleMode
+    ? 'Search Google for anything...'
+    : PLACEHOLDERS[phIdx];
+
+  return (
+    <textarea
+      rows={1}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), onSend())}
+      placeholder={placeholder}
+      className={`flex-1 bg-transparent outline-none resize-none text-sm font-medium transition-opacity duration-300 ${
+        text
+      } placeholder:text-slate-400 dark:placeholder:text-slate-500`}
+      style={{
+        maxHeight: 120,
+        opacity: value ? 1 : (fade ? 1 : 0),
+      }}
+    />
   );
 };
 
