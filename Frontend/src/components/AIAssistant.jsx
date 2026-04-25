@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Send, Bot, User, X, ChevronDown, MessageSquare, Mic, Search,
+  Send, Bot, User, X, ChevronDown, MessageSquare, Mic,
   Settings, Headset, History, PlusCircle, Maximize2, Radio, Zap,
-  AudioLines, Trash2, Volume2, VolumeX, MicOff, Sparkles,
+  AudioLines, Trash2, Volume2, VolumeX, MicOff, Sparkles, Globe,
 } from 'lucide-react';
 import API from '../services/api';
 
@@ -29,7 +29,9 @@ const AIAssistant = () => {
   const [activeSessionId, setActiveSessionId] = useState('1');
   const [isThinking, setIsThinking] = useState(false);
   const [isVoiceWriting, setIsVoiceWriting] = useState(false);
-  const [deepSearch, setDeepSearch] = useState(() => localStorage.getItem('sc-deep-search') === 'true');
+  const [isGoogleSearching, setIsGoogleSearching] = useState(false);
+  // Google Search Mode: when ON, ALL messages go to Google automatically
+  const [googleMode, setGoogleMode] = useState(() => localStorage.getItem('sc-google-mode') === 'true');
 
   // Voice state
   const [selectedVoiceName, setSelectedVoiceName] = useState('');
@@ -61,6 +63,7 @@ const AIAssistant = () => {
   const voicePitchRef = useRef(1.1);
   const voiceVolumeRef = useRef(1.0);
   const activeSessionIdRef = useRef('1');
+  const googleModeRef = useRef(localStorage.getItem('sc-google-mode') === 'true');
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
   const chatEndRef = useRef(null);
@@ -76,6 +79,7 @@ const AIAssistant = () => {
   useEffect(() => { voiceVolumeRef.current = voiceVolume; }, [voiceVolume]);
   useEffect(() => { activeSessionIdRef.current = activeSessionId; }, [activeSessionId]);
   useEffect(() => { isLiveModeRef.current = isLiveMode; }, [isLiveMode]);
+  useEffect(() => { googleModeRef.current = googleMode; }, [googleMode]);
 
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0];
 
@@ -202,11 +206,9 @@ const AIAssistant = () => {
     setSessions(prev => prev.map(s => s.id === sid
       ? { ...s, messages: [...s.messages, { role: 'user', text, id: Date.now() }] } : s));
     try {
-      // Deep search: augment the question with more detailed prompt
-      const question = deepSearch
-        ? `[DEEP SEARCH MODE] Provide a comprehensive, detailed, structured response to: ${text}. Include relevant technical context, key facts, and step-by-step explanations where applicable.`
-        : text;
-      const res = await API.post('/ask_assistant', { question, deep_search: deepSearch });
+      // Use ref to get live googleMode value (avoids stale closure inside useCallback)
+      const useGoogle = googleModeRef.current;
+      const res = await API.post('/ask_assistant', { question: text, deep_search: useGoogle });
       const reply = res.data?.reply || 'No response from Sense Brain.';
       setSessions(prev => prev.map(s => s.id === sid
         ? { ...s, messages: [...s.messages, { role: 'assistant', text: reply, id: Date.now() + 1 }] } : s));
@@ -248,11 +250,9 @@ const AIAssistant = () => {
     abortControllerRef.current = new AbortController();
 
     try {
-      // Deep search augments message for comprehensive, structured AI response
-      const question = deepSearch
-        ? `[DEEP SEARCH] Provide a comprehensive, factual, structured answer to: "${trimmed}". Cite relevant technical detail, examples, and context. Format with clear sections if helpful.`
-        : trimmed;
-      const res = await API.post('/ask_assistant', { question, deep_search: deepSearch }, {
+      // googleMode is read directly from state — handleSend is re-created every render
+      // so it always captures the latest value (no stale closure here)
+      const res = await API.post('/ask_assistant', { question: trimmed, deep_search: googleMode }, {
         signal: abortControllerRef.current.signal
       });
       const reply = res.data?.reply || 'No response.';
@@ -277,6 +277,40 @@ const AIAssistant = () => {
     rec.onresult = (e) => setInput(e.results[0][0].transcript);
     rec.onend = () => setIsVoiceWriting(false);
     rec.start();
+  };
+
+  // ── GOOGLE SEARCH BUTTON handler ─────────────────────────────────────────
+  const handleGoogleSearch = async () => {
+    const trimmed = input.trim();
+    const now = Date.now();
+    if (!trimmed || isThinking || isGoogleSearching || (now - lastRequestTimeRef.current < 800)) return;
+    lastRequestTimeRef.current = now;
+    const sid = activeSessionId;
+
+    setSessions(prev => prev.map(s => s.id === sid
+      ? { ...s, messages: [...s.messages, { role: 'user', text: trimmed, id: now }] } : s));
+    setInput('');
+    setIsGoogleSearching(true);
+
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const res = await API.post('/ask_assistant', { question: trimmed, deep_search: true }, {
+        signal: abortControllerRef.current.signal
+      });
+      const reply = res.data?.reply || 'No Google results found.';
+      if (activeSessionIdRef.current !== sid) return;
+      setSessions(prev => prev.map(s => s.id === sid
+        ? { ...s, messages: [...s.messages, { role: 'assistant', text: reply, id: Date.now() + 1 }] } : s));
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setSessions(prev => prev.map(s => s.id === sid
+          ? { ...s, messages: [...s.messages, { role: 'assistant', text: 'Google search failed. Please try again.', id: Date.now() }] } : s));
+      }
+    } finally {
+      setIsGoogleSearching(false);
+    }
   };
 
   const deleteMessage = (msgId) =>
@@ -566,53 +600,127 @@ const AIAssistant = () => {
                 </div>
 
                 {/* ── INPUT ── */}
-                <div className={`p-4 border-t shrink-0 ${sectionBorder}`}>
-                  <div className={isMaximized ? 'max-w-3xl mx-auto' : ''}>
-                    {/* Deep search toggle — persisted in localStorage */}
-                    <div className="flex gap-2 mb-2.5">
+                <div className={`border-t shrink-0 ${sectionBorder}`}>
+
+                  {/* Google Mode Banner - shown when mode is ON */}
+                  {googleMode && (
+                    <div className={`flex items-center gap-2 px-4 py-1.5 text-[10px] font-bold ${
+                      isDark
+                        ? 'bg-emerald-500/12 text-emerald-400 border-b border-emerald-500/15'
+                        : 'bg-emerald-50 text-emerald-700 border-b border-emerald-200'
+                    }`}>
+                      <Globe size={10} className="shrink-0 animate-pulse" />
+                      <span>Google Search Mode ON — every message searches Google</span>
+                    </div>
+                  )}
+
+                  <div className={`p-4 ${isMaximized ? 'max-w-3xl mx-auto' : ''}`}>
+
+                    {/* Google Mode Toggle Row */}
+                    <div className="flex items-center gap-2 mb-2.5">
                       <button
-                        onClick={() => { const next = !deepSearch; setDeepSearch(next); localStorage.setItem('sc-deep-search', String(next)); }}
-                        className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all flex items-center gap-1.5 ${
-                          deepSearch
-                            ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
-                            : `${isDark ? 'bg-white/6' : 'bg-stone-100'} ${subText}`
+                        onClick={() => {
+                          const next = !googleMode;
+                          setGoogleMode(next);
+                          googleModeRef.current = next; // sync ref immediately — don't wait for useEffect
+                          localStorage.setItem('sc-google-mode', String(next));
+                        }}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${
+                          googleMode
+                            ? isDark
+                              ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                              : 'bg-emerald-100 border-emerald-300 text-emerald-700'
+                            : isDark
+                              ? 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'
+                              : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
                         }`}
+                        title={googleMode ? 'Google Mode ON — click to turn OFF' : 'Google Mode OFF — click to turn ON'}
                       >
-                        <Search size={9} />
-                        Deep Search {deepSearch ? 'ON' : 'OFF'}
+                        {/* Switch track */}
+                        <span className={`relative inline-flex w-7 h-3.5 rounded-full transition-all ${
+                          googleMode ? 'bg-emerald-500' : isDark ? 'bg-white/20' : 'bg-slate-300'
+                        }`}>
+                          <span className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow transition-all ${
+                            googleMode ? 'left-[14px]' : 'left-0.5'
+                          }`} />
+                        </span>
+                        <Globe size={10} className={googleMode ? 'text-emerald-500' : ''} />
+                        Google Mode {googleMode ? 'ON' : 'OFF'}
                       </button>
-                      {deepSearch && (
-                        <span className={`px-2.5 py-1.5 rounded-full text-[9px] font-bold ${isDark ? 'bg-white/4 text-red-400' : 'bg-red-50 text-red-600'}`}>
-                          ⚡ All queries enhanced
+
+                      {googleMode && (
+                        <span className={`text-[9px] px-2 py-1 rounded-full font-medium ${
+                          isDark ? 'bg-emerald-500/10 text-emerald-500' : 'bg-emerald-50 text-emerald-600'
+                        }`}>
+                          All messages → Google
                         </span>
                       )}
                     </div>
-                    {/* Input box */}
-                    <div className={`flex items-end gap-2.5 rounded-2xl border ${isDark ? 'bg-white/4 border-white/8' : 'bg-slate-50 border-slate-200'} px-4 py-3`}>
+
+                    {/* Input Box */}
+                    <div className={`flex items-end gap-2.5 rounded-2xl border transition-all ${
+                      googleMode
+                        ? isDark ? 'bg-white/4 border-emerald-500/25' : 'bg-emerald-50/60 border-emerald-300'
+                        : isDark ? 'bg-white/4 border-white/8' : 'bg-slate-50 border-slate-200'
+                    } px-4 py-3`}>
                       <textarea
                         rows={1}
                         value={input}
                         onChange={e => setInput(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
-                        placeholder="Ask Sense Brain..."
+                        placeholder={googleMode ? 'Type anything — Google will search automatically...' : 'Ask Sense Brain...'}
                         className={`flex-1 bg-transparent outline-none resize-none text-sm font-medium ${text} placeholder:${subText}`}
                         style={{ maxHeight: 120 }}
                       />
                       <div className="flex gap-1.5 items-center shrink-0">
+                        {/* Mic */}
                         <button
                           onClick={startVoiceInput}
                           className={`p-2 rounded-xl transition-all ${isVoiceWriting ? 'bg-red-600 text-white' : `${subText} hover:${subBg}`}`}
+                          title="Voice input"
                         >
                           <Mic size={15} />
                         </button>
+
+                        {/* One-time Google Search (only shown when mode is OFF) */}
+                        {!googleMode && (
+                          <button
+                            onClick={handleGoogleSearch}
+                            disabled={!input.trim() || isThinking || isGoogleSearching}
+                            className={`p-2 rounded-xl transition-all active:scale-95 disabled:opacity-30 ${
+                              isGoogleSearching
+                                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 animate-pulse'
+                                : isDark
+                                  ? 'bg-white/8 text-emerald-400 hover:bg-emerald-500/20'
+                                  : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                            }`}
+                            title="Search Google once"
+                          >
+                            <Globe size={15} />
+                          </button>
+                        )}
+
+                        {/* Send button — colour changes with mode */}
                         <button
-                        onClick={handleSend}
-                        disabled={!input.trim() || isThinking}
-                        className="p-2 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 text-white shadow-md shadow-red-600/20 hover:shadow-red-600/40 disabled:opacity-30 transition-all active:scale-95"
-                      >
-                        <Send size={15} />
-                      </button>
+                          onClick={handleSend}
+                          disabled={!input.trim() || isThinking || isGoogleSearching}
+                          className={`p-2 rounded-xl text-white shadow-md transition-all active:scale-95 disabled:opacity-30 ${
+                            googleMode
+                              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/25 hover:shadow-emerald-500/40'
+                              : 'bg-gradient-to-br from-red-600 to-rose-700 shadow-red-600/20 hover:shadow-red-600/40'
+                          }`}
+                          title={googleMode ? 'Search Google' : 'Send to AI'}
+                        >
+                          {googleMode ? <Globe size={15} /> : <Send size={15} />}
+                        </button>
                       </div>
+                    </div>
+
+                    {/* Hint */}
+                    <div className={`flex gap-3 mt-1.5 px-1 text-[9px] ${subText} opacity-40`}>
+                      {googleMode
+                        ? <span>Google Mode ON — Enter or → both search Google</span>
+                        : <><span>Globe = Google once</span><span>Arrow = Sense Brain AI</span></>}
                     </div>
                   </div>
                 </div>

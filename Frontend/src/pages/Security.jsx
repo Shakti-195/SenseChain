@@ -11,6 +11,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useBreach } from '../context/BreachContext';
 import { generatePDF, generateExcel } from '../utils/reportGenerator';
+import { soundManager } from '../utils/soundManager';
 
 // ── TIMEZONE-AWARE CLOCK ──
 const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -86,6 +87,8 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
 
   const showToast = useCallback((type, msg) => {
     setToast({ type, msg });
+    if (type === 'success') soundManager.notification();
+    else soundManager.warning();
     setTimeout(() => setToast(null), 4000);
   }, []);
 
@@ -141,6 +144,7 @@ const Security = ({ integrity = true, chain = [], chainHeight = 0 }) => {
     setIsAttacking(true);
     setAttackPhase(1);
     clearInterval(idleRef.current);
+    soundManager.attack();   // 💥 cyber attack initiated
 
     ATTACK_PHASES.forEach(({ delay, type, msg }) => {
       setTimeout(() => addLog(msg(idx), type), delay);

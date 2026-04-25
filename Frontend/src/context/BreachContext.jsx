@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { soundManager } from '../utils/soundManager';
 
 const BreachContext = createContext(null);
 
@@ -50,11 +51,15 @@ export const BreachProvider = ({ children }) => {
   const setVirtualBreach = useCallback((active, blockIdx = null) => {
     setVirtualBreachState(active);
     setBreachedBlock(active ? blockIdx : null);
+    if (active) {
+      soundManager.startAlarm();  // continuous breach alarm
+    }
   }, []);
 
   const clearBreach = useCallback(() => {
     setVirtualBreachState(false);
     setBreachedBlock(null);
+    soundManager.repaired();    // triumphant restore fanfare
   }, []);
 
   // ── PAIRED NODE STATE ──
@@ -117,6 +122,7 @@ export const BreachProvider = ({ children }) => {
       addNodeLog(node.id, `[READY]  ✓ ${node.id} is LIVE on SenseChain neural mesh`, 'success');
       addNodeLog(node.id, `[MINE]   Proof-of-Work engine started · Difficulty = 4`, 'success');
       setPairedNodes(prev => prev.map(n => n.id === node.id ? { ...n, status: 'Live' } : n));
+      soundManager.nodeConnected();  // 🟢 node is now live
     }, 3400);
   }, [addNodeLog]);
 
@@ -124,6 +130,7 @@ export const BreachProvider = ({ children }) => {
   const unpairNode = useCallback((nodeId) => {
     addNodeLog(nodeId, `[DISC]   ${nodeId} gracefully disconnected from mesh`, 'warn');
     setPairedNodes(prev => prev.filter(n => n.id !== nodeId));
+    soundManager.nodeDisconnected();  // 🔌 node removed
   }, [addNodeLog]);
 
   // ── GLOBAL SIMULATION INTERVAL (persists across page navigations) ──
@@ -155,6 +162,9 @@ export const BreachProvider = ({ children }) => {
       const updatedNode = { ...node, lastTemp: newTemp, lastHum: newHum };
       const block = makeNodeBlock(updatedNode);
       setVirtualBlocks(prev => [...prev.slice(-99), block]);
+
+      // ⛏ Block mined sound — play every 5th block to avoid spam
+      if (_globalBlockCounter % 5 === 0) soundManager.blockMined();
 
       // Generate realistic log entry
       const logFn = BLOCK_LOG_POOL[Math.floor(Math.random() * BLOCK_LOG_POOL.length)];

@@ -10,13 +10,23 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      // Jab bhi aap /api use karoge, Vite use backend (8000) par bhej dega
+      // All backend routes proxied through Vite — eliminates CORS entirely
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '')
-      }
+      },
+      '/auth': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/ask_assistant': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
     }
   }
 })

@@ -45,7 +45,6 @@ except ImportError:
 # ================== 3. CONFIG & API KEYS ==================
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 tokenizer = SenseTokenizer()
-search_mode = False
 chat_history = deque(maxlen=20)
 user_name = None
 conversation_count = 0
@@ -85,29 +84,36 @@ except Exception as e:
 # ================== 6. SEARCH ENGINE ==================
 def search_google_results(query):
     if GoogleSearch is None:
-        return "❌ Search module unavailable. Install serpapi package or check your API provider."
+        return "Search module unavailable. Install serpapi package or check your API provider."
 
     try:
         params = {
             "q": query,
             "api_key": SERP_API_KEY,
             "engine": "google",
-            "num": 3
+            "num": 5
         }
         search = GoogleSearch(params)
         results = search.get_dict()
-        output = ["🌐 **Search Results:**\n"]
+
+        # Check for API-level errors
+        if "error" in results:
+            return f"Search API error: {results['error']}"
+
         organic = results.get("organic_results", [])
         if not organic:
-            return "No live results found. Check your API quota or query. 🔍"
-        for r in organic[:3]:
+            return "No live results found. Check your API quota or query."
+
+        output = [f"Web Search Results for: \"{query}\"\n"]
+        for i, r in enumerate(organic[:5], 1):
             title = r.get("title", "No Title")
             snippet = r.get("snippet", "No description available.")
-            link = r.get("link", "#")
-            output.append(f"🔗 **{title}**\n{snippet}\n")
+            link = r.get("link", "")
+            output.append(f"{i}. {title}\n   {snippet}\n   Source: {link}\n")
+
         return "\n".join(output)
     except Exception as e:
-        return f"❌ Search error: {str(e)}"
+        return f"Search error: {str(e)}"
 
 
 
@@ -563,7 +569,7 @@ def get_thinking_steps(layer: str) -> list:
     return THINKING_STEPS.get(layer, THINKING_STEPS["default"])
 
 def generate_response(text):
-    global search_mode, chat_history, user_name, conversation_count
+    global chat_history, user_name, conversation_count
     t = text.lower().strip()
     conversation_count += 1
 
@@ -667,29 +673,8 @@ def generate_response(text):
         chat_history.append(t)
         return random.choice(conversational_patterns[t]), get_thinking_steps("conversation")
 
-    # --- Integrated Search (API Based) ---
-
-    # --- Integrated Search (API Based) ---
-    if t == "search":
-        search_mode = True
-        return "Absolutely! What topic should I search for? I'll fetch the latest information from Google for you. 🔍✨", get_thinking_steps("search")
-
-    if search_mode:
-        search_mode = False
-        results = search_google_results(text.strip())
-        return results, get_thinking_steps("search")
-
-    if any(x in t for x in ["search for", "look up", "google", "find"]):
-        query = (t.replace("search for","")
-                  .replace("look up","")
-                  .replace("google","")
-                  .replace("find","")
-                  .strip())
-        if query:
-            results = search_google_results(query)
-            return results, get_thinking_steps("search")
-
     # --- Memory Recall with Improved Name Detection ---
+
     if any(phrase in t for phrase in ["my name is", "call me"]):
         words = text.split()
         for i, w in enumerate(words):
@@ -844,27 +829,16 @@ def generate_response(text):
         # Silent fallback for model errors
         pass
 
-    # --- Intelligent Fallback with Suggestions ---
-    intelligent_fallbacks = [
-        f"I'd love to help with that! 🤔 While I'm specialized in SenseChain and blockchain technologies, let me suggest some ways we can explore this:\n\n"
-        f"• Try: 'Search for {text}' to find current information\n"
-        f"• Ask about: blockchain, AI, sensor data, or cryptography\n"
-        f"• Tell me more about your project or interests! 💙",
-
-        f"That's a fascinating topic! 🌟 I'm continuously learning, but my expertise centers on decentralized technologies. "
-        f"Would you like me to search for '{text}' online, or shall we discuss how blockchain could relate to this? 🚀",
-
-        f"I appreciate you sharing that with me! 💭 While I don't have specific knowledge about that particular subject yet, "
-        f"I'm excellent at researching current information. Should I search for '{text}' or would you like to explore SenseChain features instead? ✨",
-
-        f"Interesting! 🤓 I'm designed to be your blockchain and AI companion, but I'm always eager to learn. "
-        f"Let me search for information about '{text}' to provide you with the most current insights. 🔍",
-
-        f"That's outside my current specialized knowledge, but I love expanding my understanding! 🧠 "
-        f"Shall I search for '{text}' to bring you up-to-date information, or would you prefer to discuss blockchain applications? 💡"
+    # --- Fallback: clean response, no misleading search prompts ---
+    fallbacks = [
+        f"I'm not sure I have enough context on that. Could you rephrase, or use the 🌐 Google button to search for live information on '{text}'?",
+        f"My knowledge is focused on SenseChain, blockchain, and IoT. For real-time info on '{text}', hit the 🌐 button to search Google directly!",
+        f"That's a bit outside my trained knowledge. Ask me about blockchain, sensors, or security — or use the 🌐 button to look up '{text}' on Google.",
+        f"I don't have enough info on that yet. Try the 🌐 Google Search button to get live results for '{text}'!",
+        f"I'm specialized in SenseChain tech. For '{text}', the 🌐 Google button will fetch real-time results instantly.",
     ]
 
-    return random.choice(intelligent_fallbacks), get_thinking_steps("fallback")
+    return random.choice(fallbacks), get_thinking_steps("fallback")
 
 
 # ================== 11. CHAT LOOP ==================

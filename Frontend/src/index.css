@@ -44,7 +44,7 @@
   /* ── LIGHT MODE (Default) ── */
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #f5f5f5;
+    background-color: var(--th-surface-light, #f5f5f5);
     color: #111111;
     margin: 0; padding: 0;
     -webkit-font-smoothing: antialiased;
@@ -55,7 +55,7 @@
 
   /* ── DARK MODE ── */
   .dark body {
-    background-color: #090909;
+    background-color: var(--th-surface, #090909);
     color: #f5f5f5;
   }
 
@@ -77,20 +77,20 @@
     max-width: none;
     display: flex; flex-direction: column;
     overflow: hidden;
-    /* Light Mode: Warm neutral with red glow */
+    /* Light Mode: uses theme glow vars */
     background:
-      radial-gradient(ellipse at 20% 0%, rgba(220,38,38,0.05) 0%, transparent 55%),
+      radial-gradient(ellipse at 20% 0%, var(--th-root-glow-1, rgba(220,38,38,0.05)) 0%, transparent 55%),
       radial-gradient(ellipse at 80% 0%, rgba(0,0,0,0.04) 0%, transparent 55%),
-      linear-gradient(180deg, #f5f5f5 0%, #ebebeb 100%);
+      linear-gradient(180deg, var(--th-surface-light, #f5f5f5) 0%, color-mix(in srgb, var(--th-surface-light, #f5f5f5) 90%, #000) 100%);
     transition: background 0.5s ease;
   }
 
   .dark #root {
-    /* Dark Mode: Near-black with red depth */
+    /* Dark Mode: uses theme surface + glow vars */
     background:
-      radial-gradient(ellipse at 20% 0%, rgba(220,38,38,0.10) 0%, transparent 55%),
-      radial-gradient(ellipse at 80% 100%, rgba(180,10,10,0.06) 0%, transparent 55%),
-      #090909;
+      radial-gradient(ellipse at 20% 0%, var(--th-root-glow-1, rgba(220,38,38,0.10)) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 100%, var(--th-root-glow-2, rgba(180,10,10,0.06)) 0%, transparent 55%),
+      var(--th-surface, #090909);
   }
 
   /* --- SCROLLBAR --- */
@@ -186,8 +186,8 @@
   }
   .glass-input::placeholder { color: #9ca3af; }
   .glass-input:focus {
-    border-color: #dc2626;
-    box-shadow: 0 0 0 3px rgba(220,38,38,0.10);
+    border-color: var(--th-primary, #dc2626);
+    box-shadow: 0 0 0 3px var(--th-glow, rgba(220,38,38,0.10));
     background: #ffffff;
   }
   .dark .glass-input {
@@ -197,8 +197,8 @@
   }
   .dark .glass-input::placeholder { color: rgba(163,163,163,0.5); }
   .dark .glass-input:focus {
-    border-color: #ef4444;
-    box-shadow: 0 0 0 3px rgba(239,68,68,0.12);
+    border-color: var(--th-accent, #ef4444);
+    box-shadow: 0 0 0 3px var(--th-glow, rgba(239,68,68,0.12));
     background: rgba(255,255,255,0.07);
   }
 
@@ -211,7 +211,7 @@
     justify-content: center;
     gap: 8px;
     padding: 11px 22px;
-    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    background: linear-gradient(135deg, var(--th-primary, #dc2626) 0%, var(--th-primary-dark, #991b1b) 100%);
     color: white;
     border: none;
     border-radius: 12px;
@@ -221,13 +221,13 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(220,38,38,0.35);
+    box-shadow: 0 4px 14px var(--th-glow, rgba(220,38,38,0.35));
     transition: all 0.2s ease;
   }
   .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgba(220,38,38,0.45);
-    background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);
+    box-shadow: 0 8px 20px var(--th-glow, rgba(220,38,38,0.45));
+    background: linear-gradient(135deg, var(--th-primary-dark, #b91c1c) 0%, color-mix(in srgb, var(--th-primary-dark, #991b1b) 60%, #000) 100%);
   }
   .btn-primary:active { transform: translateY(0) scale(0.98); }
   .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
@@ -329,12 +329,12 @@
      │  LOGO — Red × Black Brand Mark                   │
      └─────────────────────────────────────────────────┘ */
   .brand-logo {
-    background: linear-gradient(135deg, #dc2626 0%, #7f1d1d 60%, #111111 100%);
-    box-shadow: 0 4px 14px rgba(220,38,38,0.35);
+    background: linear-gradient(135deg, var(--th-primary, #dc2626) 0%, var(--th-primary-dark, #7f1d1d) 60%, #111111 100%);
+    box-shadow: 0 4px 14px var(--th-glow, rgba(220,38,38,0.35));
     transition: all 0.3s ease;
   }
   .brand-logo:hover {
-    box-shadow: 0 6px 20px rgba(220,38,38,0.50);
+    box-shadow: 0 6px 20px var(--th-glow, rgba(220,38,38,0.50));
     transform: scale(1.04);
   }
 }
@@ -342,7 +342,7 @@
 /* --- KEYFRAMES --- */
 @layer utilities {
   @keyframes breach-pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(220,38,38,0.3); }
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--th-glow, rgba(220,38,38,0.3)); }
     50% { opacity: 0.85; box-shadow: 0 0 0 5px rgba(220,38,38,0); }
   }
   @keyframes scanline {
@@ -354,24 +354,24 @@
     50% { transform: translateY(-6px); }
   }
   @keyframes breach-glow-anim {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.3); }
-    50% { box-shadow: 0 0 16px 4px rgba(220,38,38,0.2); }
+    0%, 100% { box-shadow: 0 0 0 0 var(--th-glow, rgba(220,38,38,0.3)); }
+    50% { box-shadow: 0 0 16px 4px var(--th-glow, rgba(220,38,38,0.2)); }
   }
   .breach-glow { animation: breach-glow-anim 2s ease-in-out infinite; }
   .animate-float { animation: float 3s ease-in-out infinite; }
 
   /* --- THEME TAG CHIPS --- */
   .chip-red {
-    background: rgba(220,38,38,0.09);
-    border: 1px solid rgba(220,38,38,0.20);
-    color: #dc2626;
+    background: var(--th-glow, rgba(220,38,38,0.09));
+    border: 1px solid color-mix(in srgb, var(--th-primary, #dc2626) 20%, transparent);
+    color: var(--th-primary, #dc2626);
     padding: 2px 10px; border-radius: 100px;
     font-size: 10px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.1em;
   }
   .dark .chip-red {
-    background: rgba(220,38,38,0.12);
-    border-color: rgba(220,38,38,0.25);
-    color: #f87171;
+    background: var(--th-glow, rgba(220,38,38,0.12));
+    border-color: color-mix(in srgb, var(--th-primary, #dc2626) 25%, transparent);
+    color: var(--th-accent, #f87171);
   }
 }

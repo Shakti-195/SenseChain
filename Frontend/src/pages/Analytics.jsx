@@ -23,26 +23,26 @@ const fmtTime = (ts) => {
 
 // ── Stat Card ────────────────────────────────────────────────────────────────
 const StatCard = ({ title, value, suffix, icon, color, pulse, onClick }) => {
-  const colors = {
-    red:    'bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400',
-    green:  'bg-emerald-100 dark:bg-emerald-500/12 text-emerald-600 dark:text-emerald-400',
-    violet: 'bg-violet-100 dark:bg-violet-500/12 text-violet-600 dark:text-violet-400',
-    sky:    'bg-sky-100 dark:bg-sky-500/12 text-sky-600 dark:text-sky-400',
-    amber:  'bg-amber-100 dark:bg-amber-500/12 text-amber-600 dark:text-amber-400',
-  };
-  const c = colors[color] || colors.red;
+  const isDanger = color === 'red' || color === 'danger';
+  const iconBg    = isDanger ? 'rgba(220,38,38,0.10)' : 'var(--th-glow)';
+  const iconColor = isDanger ? '#dc2626'               : 'var(--th-primary)';
+  const valColor  = isDanger ? '#dc2626'               : 'var(--th-primary)';
+
   return (
     <motion.div whileHover={{ y: -3 }} onClick={onClick}
       className={`glass-card rounded-[22px] p-6 cursor-pointer relative overflow-hidden transition-all ${pulse ? 'breach-glow' : ''}`}>
-      <div className="absolute top-0 right-0 -translate-y-1/3 translate-x-1/3 w-24 h-24 rounded-full blur-2xl opacity-20"
-        style={{ background: color === 'red' ? '#ef4444' : color === 'green' ? '#10b981' : color === 'violet' ? '#8b5cf6' : color === 'sky' ? '#0ea5e9' : '#f59e0b' }} />
-      <div className={`inline-flex p-2.5 rounded-xl mb-4 ${c}`}>{icon}</div>
+      {/* Ambient glow blob */}
+      <div className="absolute top-0 right-0 -translate-y-1/3 translate-x-1/3 w-24 h-24 rounded-full blur-2xl opacity-15 pointer-events-none transition-colors duration-500"
+        style={{ background: isDanger ? '#ef4444' : 'var(--th-primary)' }} />
+      <div className="inline-flex p-2.5 rounded-xl mb-4 transition-colors duration-500"
+        style={{ backgroundColor: iconBg, color: iconColor }}>{icon}</div>
       <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1" style={{ fontFamily: 'Space Grotesk' }}>{title}</p>
       <div className="flex items-end gap-2">
-        <h4 className={`text-2xl font-bold tracking-tight font-mono tabular-nums ${c.split(' ')[2]} ${c.split(' ')[3]}`}>{value}</h4>
+        <h4 className="text-2xl font-bold tracking-tight font-mono tabular-nums transition-colors duration-500"
+          style={{ color: valColor }}>{value}</h4>
         {suffix && <span className="text-[10px] text-stone-500 mb-0.5 font-mono">{suffix}</span>}
       </div>
-      {onClick && <ChevronRight size={14} className="absolute right-5 top-1/2 -translate-y-1/2 text-stone-400 group-hover:translate-x-1 transition-transform" />}
+      {onClick && <ChevronRight size={14} className="absolute right-5 top-1/2 -translate-y-1/2 text-stone-400" />}
     </motion.div>
   );
 };
@@ -92,6 +92,26 @@ const Analytics = ({ integrity = true, chainHeight = 0 }) => {
     });
   }, [pairedNodes, virtualBlocks]);
 
+  // ── Breach: pre-computed corrupted chart data (computed in JS, NOT inline JSX to avoid parse errors) ──
+  const FALLBACK_BLOCKS = Array.from({ length: 8 }, (_, i) => ({ block: '#' + i, nonce: 0, temp: 0, hum: 0, nodeId: 'chain' }));
+
+  const corruptedBarData = useMemo(() => {
+    const base = blockChartData.length > 0 ? blockChartData : FALLBACK_BLOCKS;
+    return base.map((d, i) => ({
+      ...d,
+      nonce: Math.round(Math.abs(Math.sin(i * 1.9) * 180000 + Math.random() * 60000)),
+    }));
+  }, [isBreached, blockChartData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const corruptedAreaData = useMemo(() => {
+    const base = blockChartData.length > 0 ? blockChartData : FALLBACK_BLOCKS;
+    return base.map((d, i) => ({
+      ...d,
+      temp: parseFloat((88 + Math.sin(i * 1.8) * 10 + Math.random() * 7).toFixed(1)),
+      hum:  parseFloat((5  + Math.cos(i * 2.2) * 4  + Math.random() * 4).toFixed(1)),
+    }));
+  }, [isBreached, blockChartData]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Stat values ──
   const totalBlocks = chainHeight + simBlockCount;
   const latestBlock = virtualBlocks[virtualBlocks.length - 1];
@@ -137,48 +157,85 @@ const Analytics = ({ integrity = true, chainHeight = 0 }) => {
         </div>
       </motion.div>
 
-      {/* ── STAT CARDS ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Blocks" value={totalBlocks} suffix="blocks" icon={<Database size={17} />} color="red" />
-        <StatCard title="Live Nodes" value={liveNodes.length || '—'} suffix={liveNodes.length > 0 ? 'mining' : 'none'} icon={<Signal size={17} />} color="green" />
-        <StatCard title="Latest Nonce" value={latestNonce} suffix="iters" icon={<Zap size={17} />} color="violet" />
+        <StatCard title="Total Blocks" value={totalBlocks} suffix="blocks" icon={<Database size={17} />} color="theme" />
+        <StatCard title="Live Nodes" value={liveNodes.length || '—'} suffix={liveNodes.length > 0 ? 'mining' : 'none'} icon={<Signal size={17} />} color="theme" />
+        <StatCard title="Latest Nonce" value={latestNonce} suffix="iters" icon={<Zap size={17} />} color="theme" />
         <StatCard title="System Status"
           value={isBreached ? 'CRITICAL' : 'Nominal'}
           suffix={isBreached ? 'SHA breach' : 'SHA-256 OK'}
           icon={isBreached ? <ShieldAlert size={17} /> : <ShieldCheck size={17} />}
-          color={isBreached ? 'red' : 'green'} pulse={isBreached} />
+          color={isBreached ? 'danger' : 'theme'} pulse={isBreached} />
       </div>
 
       {/* ── CHARTS ROW ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Nonce / Compute Distribution */}
-        <div className="glass-card rounded-[22px] p-6">
+        <div className={`glass-card rounded-[22px] p-6 transition-all duration-700 ${
+          isBreached ? 'border border-red-500/30 shadow-red-900/20' : ''
+        }`}>
           <div className="flex items-center gap-3 mb-5">
-            <div className="p-2.5 bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400 rounded-xl"><Activity size={16} /></div>
+            <div className={`p-2.5 rounded-xl transition-all duration-500 ${
+              isBreached ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400'
+            }`}><Activity size={16} /></div>
             <div>
-              <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Compute Distribution</h3>
-              <p className="text-[10px] text-stone-400">Nonce iterations per mined block · last 15</p>
+              <h3 className="text-sm font-bold flex items-center gap-2" style={{ fontFamily: 'Space Grotesk' }}>
+                {isBreached ? 'Compute Stream' : 'Compute Distribution'}
+                {isBreached && (
+                  <motion.span animate={{ opacity: [1,0.2,1] }} transition={{ repeat: Infinity, duration: 0.5 }}
+                    className="text-[9px] font-black text-red-500 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                    ⚡ FORGED
+                  </motion.span>
+                )}
+              </h3>
+              <p className="text-[10px] text-stone-400">
+                {isBreached ? 'Nonce values corrupted · PoW chain compromised' : 'Nonce iterations per mined block · last 15'}
+              </p>
             </div>
           </div>
-          {blockChartData.length === 0 ? (
+          {blockChartData.length === 0 && !isBreached ? (
             <div className="h-[240px] flex flex-col items-center justify-center text-stone-400 border-2 border-dashed border-white/5 rounded-2xl">
               <Activity size={28} className="mb-2 opacity-20" />
               <p className="text-xs">No blocks yet — pair a node to start mining</p>
             </div>
           ) : (
-            <div className="h-[240px]">
+            <div className="h-[240px] relative">
+              {/* Breach overlay */}
+              <AnimatePresence>
+                {isBreached && (
+                  <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+                    className="absolute inset-0 z-10 rounded-xl overflow-hidden pointer-events-none">
+                    <div className="absolute inset-0 bg-red-900/20" />
+                    <motion.div animate={{ y:['-100%','200%'] }} transition={{ repeat:Infinity, duration:2, ease:'linear' }}
+                      className="absolute left-0 right-0 h-6 bg-gradient-to-b from-transparent via-red-500/20 to-transparent" />
+                    {[15,40,65,88].map(p => (
+                      <motion.div key={p} animate={{ opacity:[0,1,0], scaleX:[0.4,1,0.5] }}
+                        transition={{ repeat:Infinity, duration:0.35+p*0.006, delay:p*0.008 }}
+                        className="absolute left-0 right-0 h-px bg-red-400/40" style={{ top:`${p}%` }} />
+                    ))}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <motion.p animate={{ opacity:[1,0.15,1], x:[-1,2,-1,0] }} transition={{ repeat:Infinity, duration:0.35 }}
+                        className="text-red-500 font-black text-sm uppercase tracking-[0.25em]"
+                        style={{ fontFamily:'JetBrains Mono,monospace', textShadow:'0 0 16px #ef4444' }}>
+                        ⚡ NONCE FORGED
+                      </motion.p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={blockChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="4 4" vertical={false} strokeOpacity={0.05} />
-                  <XAxis dataKey="block" tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#6b7280' }} tickLine={false} axisLine={false} />
+                <BarChart
+                  data={isBreached ? corruptedBarData : blockChartData}
+                  margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="4 4" vertical={false} strokeOpacity={isBreached ? 0.03 : 0.05} />
+                  <XAxis dataKey="block" tick={{ fontSize:9, fontFamily:'JetBrains Mono', fill: isBreached ? '#ef4444' : '#6b7280' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize:9, fontFamily:'JetBrains Mono', fill: isBreached ? '#ef4444' : '#6b7280' }} tickLine={false} axisLine={false} />
                   <Tooltip content={<RedTooltip />} />
-                  <Bar dataKey="nonce" name="Nonce" radius={[6, 6, 2, 2]} barSize={28}>
-                    {blockChartData.map((entry, i) => {
-                      const nodeIdx = pairedNodes.findIndex(n => n.id === entry.nodeId);
-                      return <Cell key={i} fill={isBreached ? '#dc2626' : (nodeIdx >= 0 ? nodeColors[nodeIdx % nodeColors.length] : '#ef4444')} opacity={i === blockChartData.length - 1 ? 1 : 0.55} />;
-                    })}
+                  <Bar dataKey="nonce" name="Nonce" radius={[6,6,2,2]} barSize={28}>
+                    {(isBreached ? corruptedBarData : blockChartData).map((_, i) => (
+                      <Cell key={i} fill="#dc2626" opacity={isBreached ? (0.5 + (i % 3) * 0.2) : (i === blockChartData.length - 1 ? 1 : 0.55)} />
+                    ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -187,39 +244,82 @@ const Analytics = ({ integrity = true, chainHeight = 0 }) => {
         </div>
 
         {/* Temperature Stream */}
-        <div className="glass-card rounded-[22px] p-6">
+        <div className={`glass-card rounded-[22px] p-6 transition-all duration-700 ${
+          isBreached ? 'border border-red-500/30' : ''
+        }`}>
           <div className="flex items-center gap-3 mb-5">
-            <div className="p-2.5 bg-violet-100 dark:bg-violet-500/12 text-violet-600 dark:text-violet-400 rounded-xl"><Thermometer size={16} /></div>
+            <div className={`p-2.5 rounded-xl transition-all duration-500 ${
+              isBreached ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400'
+            }`}><Thermometer size={16} /></div>
             <div>
-              <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Thermal + Humidity Stream</h3>
-              <p className="text-[10px] text-stone-400">Sensor telemetry per block · IoT drift simulation</p>
+              <h3 className="text-sm font-bold flex items-center gap-2" style={{ fontFamily: 'Space Grotesk' }}>
+                {isBreached ? 'Thermal Stream' : 'Thermal + Humidity Stream'}
+                {isBreached && (
+                  <motion.span animate={{ opacity:[1,0.2,1] }} transition={{ repeat:Infinity, duration:0.5 }}
+                    className="text-[9px] font-black text-red-500 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                    ⚡ CORRUPTED
+                  </motion.span>
+                )}
+              </h3>
+              <p className="text-[10px] text-stone-400">
+                {isBreached ? 'Sensor data compromised · Values forged' : 'Sensor telemetry per block · IoT drift simulation'}
+              </p>
             </div>
           </div>
-          {blockChartData.length === 0 ? (
+          {blockChartData.length === 0 && !isBreached ? (
             <div className="h-[240px] flex flex-col items-center justify-center text-stone-400 border-2 border-dashed border-white/5 rounded-2xl">
               <Thermometer size={28} className="mb-2 opacity-20" />
               <p className="text-xs">Awaiting telemetry from paired nodes</p>
             </div>
           ) : (
-            <div className="h-[240px]">
+            <div className="h-[240px] relative">
+              {/* Breach overlay */}
+              <AnimatePresence>
+                {isBreached && (
+                  <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+                    className="absolute inset-0 z-10 rounded-xl overflow-hidden pointer-events-none">
+                    <div className="absolute inset-0 bg-red-900/20" />
+                    <motion.div animate={{ y:['-100%','200%'] }} transition={{ repeat:Infinity, duration:2.2, ease:'linear' }}
+                      className="absolute left-0 right-0 h-6 bg-gradient-to-b from-transparent via-red-500/20 to-transparent" />
+                    {[25,50,75].map(p => (
+                      <motion.div key={p} animate={{ opacity:[0,1,0], scaleX:[0.3,1,0.4] }}
+                        transition={{ repeat:Infinity, duration:0.4+p*0.005, delay:p*0.01 }}
+                        className="absolute left-0 right-0 h-px bg-red-400/40" style={{ top:`${p}%` }} />
+                    ))}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <motion.p animate={{ opacity:[1,0.15,1], x:[-2,1,-1,0] }} transition={{ repeat:Infinity, duration:0.35 }}
+                        className="text-red-500 font-black text-sm uppercase tracking-[0.25em]"
+                        style={{ fontFamily:'JetBrains Mono,monospace', textShadow:'0 0 16px #ef4444' }}>
+                        ⚡ DATA CORRUPTED
+                      </motion.p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={blockChartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <AreaChart
+                  data={isBreached ? corruptedAreaData : blockChartData}
+                  margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="aTemp" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={isBreached ? '#dc2626' : '#ef4444'} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#dc2626" stopOpacity={isBreached ? 0.5 : 0.3} />
+                      <stop offset="95%" stopColor="#dc2626" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="aHum" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                      <stop offset="5%" stopColor={isBreached ? '#dc2626' : '#0ea5e9'} stopOpacity={isBreached ? 0.25 : 0.2} />
+                      <stop offset="95%" stopColor={isBreached ? '#dc2626' : '#0ea5e9'} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="4 4" vertical={false} strokeOpacity={0.05} />
-                  <XAxis dataKey="block" tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#6b7280' }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 9, fontFamily: 'JetBrains Mono', fill: '#6b7280' }} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} />
+                  <CartesianGrid strokeDasharray="4 4" vertical={false} strokeOpacity={isBreached ? 0.03 : 0.05} />
+                  <XAxis dataKey="block" tick={{ fontSize:9, fontFamily:'JetBrains Mono', fill: isBreached ? '#ef4444' : '#6b7280' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize:9, fontFamily:'JetBrains Mono', fill: isBreached ? '#ef4444' : '#6b7280' }} tickLine={false} axisLine={false} domain={isBreached ? [0, 110] : ['dataMin - 2', 'dataMax + 2']} />
                   <Tooltip content={<RedTooltip />} />
-                  <Area type="monotone" dataKey="temp" name="Temp °C" stroke={isBreached ? '#dc2626' : '#ef4444'} strokeWidth={2} fill="url(#aTemp)" dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
-                  <Area type="monotone" dataKey="hum" name="Humidity %" stroke="#0ea5e9" strokeWidth={2} fill="url(#aHum)" dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+                  <Area type={isBreached ? 'basis' : 'monotone'} dataKey="temp" name="Temp °C"
+                    stroke="#dc2626" strokeWidth={2} fill="url(#aTemp)" dot={false} activeDot={{ r:4 }} isAnimationActive={false} />
+                  <Area type={isBreached ? 'basis' : 'monotone'} dataKey="hum" name="Humidity %"
+                    stroke={isBreached ? '#ef4444' : '#0ea5e9'} strokeWidth={isBreached ? 1.5 : 2}
+                    strokeDasharray={isBreached ? '4 2' : '0'}
+                    fill="url(#aHum)" dot={false} activeDot={{ r:4 }} isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -230,7 +330,7 @@ const Analytics = ({ integrity = true, chainHeight = 0 }) => {
       {/* ── NODE PERFORMANCE TABLE ── */}
       <div className="glass-card rounded-[22px] overflow-hidden">
         <div className="p-6 md:p-8 border-b border-stone-100 dark:border-white/5 flex items-center gap-3">
-          <div className="p-2.5 bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400 rounded-xl"><Cpu size={18} /></div>
+          <div className="p-2.5 rounded-xl" style={{ backgroundColor: 'var(--th-glow)', color: 'var(--th-primary)' }}><Cpu size={18} /></div>
           <div>
             <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Node Performance</h3>
             <p className="text-[10px] text-stone-400">{nodeStats.length} device{nodeStats.length !== 1 ? 's' : ''} registered · real-time per-node metrics</p>
@@ -317,7 +417,7 @@ const Analytics = ({ integrity = true, chainHeight = 0 }) => {
       {/* ── BLOCK BROADCAST LOG ── */}
       <div className="glass-card rounded-[22px] overflow-hidden">
         <div className="p-6 md:p-8 border-b border-stone-100 dark:border-white/5 flex items-center gap-3">
-          <div className="p-2.5 bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400 rounded-xl"><TrendingUp size={18} /></div>
+          <div className="p-2.5 rounded-xl" style={{ backgroundColor: 'var(--th-glow)', color: 'var(--th-primary)' }}><TrendingUp size={18} /></div>
           <div>
             <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Block Broadcast Log</h3>
             <p className="text-[10px] text-stone-400">Real-time ledger entries from paired hardware · {virtualBlocks.length} blocks total</p>

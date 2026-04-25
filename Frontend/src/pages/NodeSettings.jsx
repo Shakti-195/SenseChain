@@ -121,14 +121,18 @@ const NodeSettings = ({ chainHeight = 0, integrity = true, lastUpdated = '' }) =
       {/* ── SUMMARY STATS ROW ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Blocks', value: totalBlocks, color: 'text-red-400 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-500/12', icon: <Database size={16} /> },
-          { label: 'Live Nodes',   value: `${liveNodes.length} / ${pairedNodes.length}`, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-500/12', icon: <Signal size={16} /> },
-          { label: 'Proof Difficulty', value: `${difficulty} Zeros`, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-500/12', icon: <Zap size={16} /> },
-          { label: 'Chain Status', value: isBreached ? 'Breached' : 'Secure', color: isBreached ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400', bg: isBreached ? 'bg-red-100 dark:bg-red-500/12' : 'bg-emerald-100 dark:bg-emerald-500/12', icon: isBreached ? <ShieldAlert size={16} /> : <ShieldCheck size={16} /> },
-        ].map(({ label, value, color, bg, icon }) => (
+          { label: 'Total Blocks', value: totalBlocks, icon: <Database size={16} />, danger: false },
+          { label: 'Live Nodes',   value: `${liveNodes.length} / ${pairedNodes.length}`, icon: <Signal size={16} />, danger: false },
+          { label: 'Proof Difficulty', value: `${difficulty} Zeros`, icon: <Zap size={16} />, danger: false },
+          { label: 'Chain Status', value: isBreached ? 'Breached' : 'Secure', icon: isBreached ? <ShieldAlert size={16} /> : <ShieldCheck size={16} />, danger: isBreached },
+        ].map(({ label, value, icon, danger }) => (
           <motion.div key={label} whileHover={{ y: -2 }} className="glass-card rounded-2xl p-5">
-            <div className={`p-2 rounded-xl ${bg} ${color} inline-flex mb-3`}>{icon}</div>
-            <p className={`text-xl font-bold font-mono ${color}`}>{value}</p>
+            <div className="p-2 rounded-xl inline-flex mb-3"
+              style={{ backgroundColor: danger ? 'rgba(220,38,38,0.10)' : 'var(--th-glow)', color: danger ? '#dc2626' : 'var(--th-primary)' }}>
+              {icon}
+            </div>
+            <p className="text-xl font-bold font-mono"
+              style={{ color: danger ? '#dc2626' : 'var(--th-primary)' }}>{value}</p>
             <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 mt-1 uppercase tracking-wide">{label}</p>
           </motion.div>
         ))}
@@ -139,9 +143,9 @@ const NodeSettings = ({ chainHeight = 0, integrity = true, lastUpdated = '' }) =
 
         {/* CONSENSUS ENGINE */}
         <div className="lg:col-span-2 glass-card rounded-[22px] p-6 md:p-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-48 h-48 bg-red-500/4 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-48 h-48 rounded-full blur-3xl pointer-events-none" style={{ background: 'var(--th-glow)' }} />
           <div className="flex items-center gap-3 mb-6 relative z-10">
-            <div className="p-2.5 bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400 rounded-xl"><Cpu size={18} /></div>
+            <div className="p-2.5 rounded-xl" style={{ backgroundColor: 'var(--th-glow)', color: 'var(--th-primary)' }}><Cpu size={18} /></div>
             <div>
               <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Consensus Engine</h3>
               <p className="text-[10px] text-stone-400">SHA-256 proof-of-work difficulty scaling</p>
@@ -155,16 +159,16 @@ const NodeSettings = ({ chainHeight = 0, integrity = true, lastUpdated = '' }) =
                   <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Leading Zeros Target</p>
                   <p className="text-[10px] text-stone-500 mt-0.5">Higher = harder mining · more compute per block</p>
                 </div>
-                <span className="text-5xl font-black font-mono text-red-500" style={{ fontFamily: 'Space Grotesk' }}>{difficulty}</span>
+                <span className="text-5xl font-black font-mono" style={{ fontFamily: 'Space Grotesk', color: 'var(--th-primary)' }}>{difficulty}</span>
               </div>
               <input
                 type="range" min="1" max="6" value={difficulty}
                 onChange={e => setDifficulty(parseInt(e.target.value))}
-                className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-red-500"
-                style={{ background: `linear-gradient(to right, #ef4444 ${(difficulty-1)/5*100}%, rgba(255,255,255,0.1) ${(difficulty-1)/5*100}%)` }}
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                style={{ accentColor: 'var(--th-primary)', background: `linear-gradient(to right, var(--th-primary) ${(difficulty-1)/5*100}%, rgba(255,255,255,0.1) ${(difficulty-1)/5*100}%)` }}
               />
               <div className="flex justify-between text-[9px] text-stone-600 font-mono mt-1.5">
-                {[1,2,3,4,5,6].map(n => <span key={n} style={{ color: n === difficulty ? '#ef4444' : undefined }}>{n}</span>)}
+                {[1,2,3,4,5,6].map(n => <span key={n} style={{ color: n === difficulty ? 'var(--th-primary)' : undefined }}>{n}</span>)}
               </div>
             </div>
 
@@ -185,7 +189,8 @@ const NodeSettings = ({ chainHeight = 0, integrity = true, lastUpdated = '' }) =
 
             {/* Save button */}
             <button onClick={handleSave} disabled={isSaving}
-              className="w-full py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60">
+              className="w-full py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest text-white transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
+              style={{ background: 'linear-gradient(135deg, var(--th-primary) 0%, var(--th-primary-dark) 100%)', boxShadow: '0 4px 14px var(--th-glow)' }}>
               {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
               {isSaving ? 'Updating Protocol...' : 'Update Consensus Protocol'}
             </button>
@@ -203,11 +208,11 @@ const NodeSettings = ({ chainHeight = 0, integrity = true, lastUpdated = '' }) =
         </div>
 
         {/* MAINTENANCE */}
-        <div className="glass-card rounded-[22px] p-6 md:p-8 flex flex-col justify-between relative overflow-hidden border border-red-500/10">
-          <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-36 h-36 bg-red-600/8 rounded-full blur-2xl pointer-events-none" />
+        <div className="glass-card rounded-[22px] p-6 md:p-8 flex flex-col justify-between relative overflow-hidden" style={{ borderColor: 'color-mix(in srgb, var(--th-primary) 10%, transparent)', borderWidth: '1px', borderStyle: 'solid' }}>
+          <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-36 h-36 rounded-full blur-2xl pointer-events-none" style={{ background: 'var(--th-glow)' }} />
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-red-100 dark:bg-red-500/12 text-red-600 dark:text-red-400 rounded-xl"><Trash2 size={18} /></div>
+              <div className="p-2.5 rounded-xl" style={{ backgroundColor: 'var(--th-glow)', color: 'var(--th-primary)' }}><Trash2 size={18} /></div>
               <div>
                 <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Maintenance</h3>
                 <p className="text-[10px] text-stone-400">Ledger purge operations</p>
@@ -225,7 +230,10 @@ const NodeSettings = ({ chainHeight = 0, integrity = true, lastUpdated = '' }) =
             </div>
           </div>
           <button onClick={() => setShowResetConfirm(true)}
-            className="relative z-10 w-full py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-all active:scale-95 mt-4">
+            className="relative z-10 w-full py-3 rounded-xl font-bold text-xs uppercase tracking-widest border-2 transition-all active:scale-95 mt-4 hover:text-white"
+            style={{ borderColor: 'var(--th-primary)', color: 'var(--th-primary)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--th-primary)'; e.currentTarget.style.color = 'white'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--th-primary)'; }}>
             Reset Ledger
           </button>
         </div>
@@ -234,7 +242,7 @@ const NodeSettings = ({ chainHeight = 0, integrity = true, lastUpdated = '' }) =
       {/* ── PAIRED NODES DETAIL ── */}
       <div className="glass-card rounded-[22px] overflow-hidden">
         <div className="p-6 md:p-8 border-b border-stone-100 dark:border-white/5 flex items-center gap-3">
-          <div className="p-2.5 bg-violet-100 dark:bg-violet-500/12 text-violet-600 dark:text-violet-400 rounded-xl"><Signal size={18} /></div>
+          <div className="p-2.5 rounded-xl" style={{ backgroundColor: 'var(--th-glow)', color: 'var(--th-primary)' }}><Signal size={18} /></div>
           <div>
             <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>Registered Hardware</h3>
             <p className="text-[10px] text-stone-400">{pairedNodes.length} device{pairedNodes.length !== 1 ? 's' : ''} registered · {liveNodes.length} live · manage from Uplink Terminal</p>

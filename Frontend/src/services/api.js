@@ -20,7 +20,7 @@ const getBaseURL = () => {
 
 const API = axios.create({
   baseURL: getBaseURL(),
-  timeout: 20000, // 20s for slow Render responses
+  timeout: 50000, // 50s — Google Deep Search can take up to 40s via SerpAPI
   headers: { "Content-Type": "application/json" },
 });
 

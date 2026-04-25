@@ -3,11 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, ArrowRight, Loader2, ShieldCheck, Activity, Eye, EyeOff, Blocks, Zap } from 'lucide-react';
+import { soundManager } from '../utils/soundManager';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://127.0.0.1:8000'
-    : 'https://sensechain.onrender.com');
+  (import.meta.env.DEV ? '' : 'https://sensechain.onrender.com');
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -28,15 +27,19 @@ const Login = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+      let data = {};
+      try { data = await res.json(); } catch { /* non-JSON body */ }
       if (res.ok) {
+        soundManager.login();
         login(data.access_token, email);
         navigate('/');
       } else {
-        setError(data.detail || 'Invalid credentials. Please try again.');
+        soundManager.error();
+        setError(data.detail || `Login failed (${res.status}). Check your credentials.`);
       }
     } catch {
-      setError('Unable to reach server. Please check your connection.');
+      soundManager.error();
+      setError('Cannot reach the server. Make sure the backend is running on port 8000.');
     } finally {
       setLoading(false);
     }

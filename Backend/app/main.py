@@ -232,14 +232,61 @@ async def repair_chain():
 @app.post("/ask_assistant")
 async def ask_assistant(request: Request):
     try:
-        req_data = await request.json()
-        question = req_data.get("question", "")
-        # Run AI logic in threadpool + timeout protection
-        result = await asyncio.wait_for(run_in_threadpool(generate_response, question), timeout=25.0)
+        req_data  = await request.json()
+        raw_q     = req_data.get("question", "").strip()
+        deep_srch = req_data.get("deep_search", False)
+
+        if not raw_q:
+            return {"reply": "Please ask me something!", "status": "error"}
+
+        # ── DEEP SEARCH: all queries go through Google automatically ─────────
+        if deep_srch:
+            def _do_deep_search():
+                try:
+                    from chat_with_sense import search_google_results
+                except ImportError:
+                    from app.chat_with_sense import search_google_results
+
+                web = search_google_results(raw_q)
+
+                # Only treat as error if OUR OWN error strings are returned.
+                # Do NOT use broad substring checks like "unavailable" — Google
+                # result snippets often contain that word legitimately.
+                is_error = (
+                    not web
+                    or web.startswith("Search error:")
+                    or web.startswith("Search API error:")
+                    or web.startswith("Search module unavailable")
+                    or web == "No live results found. Check your API quota or query."
+                )
+
+                if not is_error:
+                    return (
+                        f"Google Search Results for: \"{raw_q}\"\n\n"
+                        f"{web}\n"
+                        "--- Powered by Sense Brain Deep Search via Google ---"
+                    )
+
+                # Fallback: local AI when search quota/network unavailable
+                try:
+                    from chat_with_sense import generate_response as gr
+                except ImportError:
+                    from app.chat_with_sense import generate_response as gr
+                res = gr(raw_q)
+                ai  = res[0] if isinstance(res, (tuple, list)) else res
+                logger.warning(f"Deep search fallback triggered. Search returned: {web}")
+                return f"[Search unavailable - using local knowledge]\n\n{ai}"
+
+            reply = await asyncio.wait_for(run_in_threadpool(_do_deep_search), timeout=40.0)
+            return {"reply": str(reply).strip(), "status": "success", "source": "deep_search"}
+
+        # ── STANDARD local AI ─────────────────────────────────────────────────
+        result   = await asyncio.wait_for(run_in_threadpool(generate_response, raw_q), timeout=25.0)
         ai_reply = result[0] if isinstance(result, (tuple, list)) else result
-        return {"reply": str(ai_reply).replace("*", "").strip(), "status": "success"}
+        return {"reply": str(ai_reply).replace("*", "").strip(), "status": "success", "source": "local_ai"}
+
     except asyncio.TimeoutError:
-        return {"reply": "Neural connection timed out. System busy.", "status": "error"}
+        return {"reply": "Neural connection timed out. Please try again.", "status": "error"}
     except Exception as e:
         logger.error(f"AI ERROR: {e}")
         return {"reply": "Neural link error. Please retry.", "status": "error"}
