@@ -7,12 +7,12 @@ import {
   Activity, ShieldCheck, ShieldAlert, Search, Database, Globe, ChevronRight,
   Cpu, Sparkles, Thermometer, Droplets, Flame, Info, Copy, Check,
   Zap, Heart, AlertTriangle, Wifi, Bluetooth, Radio, Signal,
-  Terminal, Lock, X,
+  Terminal, Lock, X, Newspaper, BookOpen,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBreach } from '../context/BreachContext';
 
-// ── TIMEZONE HELPERS ──
+// â”€â”€ TIMEZONE HELPERS â”€â”€
 const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const fmtTime = (ts) => {
@@ -34,7 +34,7 @@ const fmtDate = (ts) => {
   } catch { return ''; }
 };
 
-// ── SIGNAL STRENGTH BARS ──
+// â”€â”€ SIGNAL STRENGTH BARS â”€â”€
 const SignalBars = ({ rssi }) => {
   const dbm = parseInt(rssi) || -70;
   const strength = dbm > -50 ? 4 : dbm > -60 ? 3 : dbm > -70 ? 2 : 1;
@@ -48,7 +48,7 @@ const SignalBars = ({ rssi }) => {
   );
 };
 
-// ── NODE STATUS BADGE ──
+// â”€â”€ NODE STATUS BADGE â”€â”€
 const NodeStatus = ({ status }) => {
   const cfg = {
     Connecting:  { color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20', dot: 'bg-yellow-400' },
@@ -85,18 +85,18 @@ const Dashboard = ({
 
   const isBreached = !integrity || virtualBreach;
 
-  // ── NORMALIZE REAL CHAIN ──
+  // â”€â”€ NORMALIZE REAL CHAIN â”€â”€
   const normalizedChain = useMemo(() => {
     if (!chain?.length) return [];
     const allZero = chain.every(b => b.index === 0);
     return allZero ? chain.map((b, i) => ({ ...b, index: i })) : chain;
   }, [chain]);
 
-  // ── LEDGER: only show virtualBlocks from paired nodes (no static backend data) ──
+  // â”€â”€ LEDGER: only show virtualBlocks from paired nodes (no static backend data) â”€â”€
   // When no nodes are paired, the ledger is empty (no phantom #0 block).
   const mergedChain = useMemo(() => virtualBlocks, [virtualBlocks]);
 
-  // ── AI ANALYSIS ──
+  // â”€â”€ AI ANALYSIS â”€â”€
   const aiAnalysis = useMemo(() => {
     if (isBreached)
       return { status: 'Anomaly Detected', message: 'Emergency: Blockchain integrity compromise detected. Forensic lockdown active.', score: 30, anomalies: [{ type: 'CRITICAL', msg: 'Cryptographic Breach' }] };
@@ -119,7 +119,7 @@ const Dashboard = ({
     return { status: anomalies.length > 0 ? 'Anomaly Detected' : 'Stable', message, score: Math.max(score, 0), anomalies };
   }, [mergedChain, isBreached, integrity, isSimulating, pairedNodes]);
 
-  // ── CHART DATA (last 30 virtual blocks only, no static fallback) ──
+  // â”€â”€ CHART DATA (last 30 virtual blocks only, no static fallback) â”€â”€
   const telemetryData = useMemo(() => {
     const src = virtualBlocks.filter(b => typeof b.index === 'number').slice(-30);
     if (src.length === 0) return [];
@@ -138,7 +138,7 @@ const Dashboard = ({
     return data;
   }, [mergedChain]);
 
-  // ── BREACH: inject corrupted/erratic chart data ──
+  // â”€â”€ BREACH: inject corrupted/erratic chart data â”€â”€
   // When breached, real values are replaced with random spikes to visualise data corruption
   const corruptedChartData = useMemo(() => {
     if (!isBreached) return telemetryData;
@@ -152,7 +152,7 @@ const Dashboard = ({
     }));
   }, [isBreached, telemetryData]);
 
-  // ── HEATMAP DATA (last 50 temp readings mapped to color cells) ──
+  // â”€â”€ HEATMAP DATA (last 50 temp readings mapped to color cells) â”€â”€
   const heatmapCells = useMemo(() => {
     const blocks = mergedChain.slice(-50);
     return blocks.map(b => {
@@ -160,13 +160,13 @@ const Dashboard = ({
       if (typeof d === 'string') { try { d = JSON.parse(d); } catch { d = {}; } }
       d = d || {};
       const temp = d.temperature ?? b._temp ?? 24;
-      // Normalize 18–42°C to 0–1
+      // Normalize 18â€“42Â°C to 0â€“1
       const norm = Math.max(0, Math.min(1, (temp - 18) / 24));
       return { temp, norm, nodeId: b._nodeId || 'chain', index: b.index };
     });
   }, [virtualBlocks]);
 
-  // ── FILTERED LEDGER (only virtual blocks from paired nodes) ──
+  // â”€â”€ FILTERED LEDGER (only virtual blocks from paired nodes) â”€â”€
   const filteredChain = useMemo(() => {
     if (!virtualBlocks.length) return [];
     const s = searchTerm.toLowerCase();
@@ -191,7 +191,7 @@ const Dashboard = ({
   return (
     <div className="page-wrapper space-y-6 custom-scrollbar">
 
-      {/* ── CRITICAL BREACH BANNER ── */}
+      {/* â”€â”€ CRITICAL BREACH BANNER â”€â”€ */}
       <AnimatePresence>
         {isBreached && (
           <motion.div
@@ -204,25 +204,25 @@ const Dashboard = ({
               <AlertTriangle size={22} fill="currentColor" />
             </motion.div>
             <div className="flex-1">
-              <p className="font-bold text-sm tracking-wide">⚡ CRITICAL SECURITY ALERT — Blockchain Integrity Compromised</p>
+              <p className="font-bold text-sm tracking-wide">âš¡ CRITICAL SECURITY ALERT â€” Blockchain Integrity Compromised</p>
               <p className="text-[11px] text-red-200 mt-0.5">
                 {virtualBreach
                   ? `Virtual attack injected at Block #${breachedBlock ?? '?'}. SHA-256 hash chain severed. Navigate to Security Terminal to repair.`
                   : 'Real chain integrity breach detected. Navigate to Security Terminal to repair.'}
               </p>
             </div>
-            {/* Navigate ONLY — no repair here */}
+            {/* Navigate ONLY â€” no repair here */}
             <button
               onClick={() => navigate('/security')}
               className="shrink-0 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border border-white/20"
             >
-              Security Terminal →
+              Security Terminal â†’
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── PAGE HEADER ── */}
+      {/* â”€â”€ PAGE HEADER â”€â”€ */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
         className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -241,10 +241,10 @@ const Dashboard = ({
             Network <span className="bg-gradient-to-r from-red-600 to-rose-500 bg-clip-text text-transparent">Overview</span>
           </h1>
           <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-            Real-time blockchain telemetry · <span className="font-mono text-xs text-red-400">{LOCAL_TZ}</span>
+            Real-time blockchain telemetry Â· <span className="font-mono text-xs text-red-400">{LOCAL_TZ}</span>
           </p>
         </div>
-        {/* Connection status — show 'Simulation Mode' not 'Backend Offline' when no real HW */}
+        {/* Connection status â€” show 'Simulation Mode' not 'Backend Offline' when no real HW */}
         <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border ${
           isSimulating
             ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
@@ -258,11 +258,137 @@ const Dashboard = ({
             'bg-emerald-500 animate-pulse'
           }`} />
           {isSimulating
-            ? `Simulation Mode · ${liveNodes.length} node${liveNodes.length !== 1 ? 's' : ''} live`
+            ? `Simulation Mode Â· ${liveNodes.length} node${liveNodes.length !== 1 ? 's' : ''} live`
             : connError
             ? 'Awaiting Backend'
             : 'Synchronized'
           }
+        </div>
+      </motion.div>
+
+      {/* ── QUICK ACTIONS & PLATFORM NEWS ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="glass-card rounded-[22px] p-6 relative overflow-hidden"
+      >
+        {/* Background glow matching the brand theme */}
+        <div className="absolute top-0 left-0 -translate-y-1/3 -translate-x-1/4 w-72 h-72 bg-[var(--th-primary)]/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 translate-y-1/3 translate-x-1/4 w-72 h-72 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col lg:flex-row items-stretch gap-6 relative z-10">
+          {/* Left Block: Brief intro and news summary */}
+          <div className="flex-1 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[var(--th-glow)] border border-[var(--th-primary)]/20 text-[var(--th-primary)]">
+                <Sparkles size={9} /> Platform Guide
+              </span>
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-stone-100 dark:bg-white/5 border border-stone-200 dark:border-white/10 text-stone-500 dark:text-stone-400">
+                v5.0 Live
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight" style={{ fontFamily: 'Space Grotesk' }}>
+                Welcome to <span className="bg-gradient-to-r from-[var(--th-primary)] to-rose-500 bg-clip-text text-transparent">SenseChain Terminal</span>
+              </h2>
+              <p className="text-sm text-stone-500 dark:text-stone-400 leading-relaxed max-w-2xl">
+                SenseChain is a smart security dashboard that protects sensor data (like temperature and humidity) from tampering. 
+                It saves your live data into a secure digital ledger (blockchain) and uses AI to immediately alert you if someone tries to change the values. 
+                If you want to know about the system architecture and platform updates, please visit the News &amp; Updates section.
+              </p>
+            </div>
+
+            {/* highlights / bullet points */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="flex items-start gap-2.5 text-xs text-stone-500 dark:text-stone-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-[var(--th-primary)] mt-1.5 shrink-0 animate-pulse" />
+                <div>
+                  <span className="font-bold text-stone-700 dark:text-stone-200">SHA-256 Proof-of-Work:</span> Telemetry is mined in real time.
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs text-stone-500 dark:text-stone-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-[var(--th-primary)] mt-1.5 shrink-0 animate-pulse" />
+                <div>
+                  <span className="font-bold text-stone-700 dark:text-stone-200">Neural Security Core:</span> Live AI detects block tampering instantly.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Vertical Divider for lg screens */}
+          <div className="hidden lg:block w-px bg-stone-100 dark:bg-white/5 self-stretch" />
+
+          {/* Right Block: Quick Actions */}
+          <div className="flex flex-col justify-center sm:min-w-[280px] space-y-3">
+            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">
+              Quick Actions
+            </p>
+            
+            {/* Nav to News & Updates Guide */}
+            <button
+              onClick={() => navigate('/about')}
+              className="flex items-center justify-between p-3.5 rounded-xl border border-stone-200 dark:border-white/5 bg-white/40 dark:bg-white/2 hover:bg-[var(--th-glow)] hover:border-[var(--th-primary)]/30 group text-left transition-all duration-300 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-[var(--th-glow)] text-[var(--th-primary)]">
+                  <Newspaper size={15} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-[var(--th-primary)] transition-colors">
+                    News &amp; Updates
+                  </p>
+                  <p className="text-[10px] text-stone-400 dark:text-stone-500">
+                    Step-by-step guide &amp; roadmap
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={13} className="text-stone-400 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            {/* Nav to Uplink Terminal */}
+            <button
+              onClick={() => navigate('/provisioning')}
+              className="flex items-center justify-between p-3.5 rounded-xl border border-stone-200 dark:border-white/5 bg-white/40 dark:bg-white/2 hover:bg-[var(--th-glow)] hover:border-[var(--th-primary)]/30 group text-left transition-all duration-300 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-[var(--th-glow)] text-[var(--th-primary)]">
+                  <Signal size={15} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-[var(--th-primary)] transition-colors">
+                    Pair IoT Nodes
+                  </p>
+                  <p className="text-[10px] text-stone-400 dark:text-stone-500">
+                    Connect hardware or run simulation
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={13} className="text-stone-400 group-hover:translate-x-1 transition-transform" />
+            </button>
+
+            {/* Nav to Security Terminal */}
+            <button
+              onClick={() => navigate('/security')}
+              className="flex items-center justify-between p-3.5 rounded-xl border border-stone-200 dark:border-white/5 bg-white/40 dark:bg-white/2 hover:bg-[var(--th-glow)] hover:border-[var(--th-primary)]/30 group text-left transition-all duration-300 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-[var(--th-glow)] text-[var(--th-primary)]">
+                  <ShieldCheck size={15} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-stone-800 dark:text-stone-200 group-hover:text-[var(--th-primary)] transition-colors">
+                    Audit Security
+                  </p>
+                  <p className="text-[10px] text-stone-400 dark:text-stone-500">
+                    Validate links &amp; test alerts
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={13} className="text-stone-400 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
         </div>
       </motion.div>
 
@@ -277,13 +403,13 @@ const Dashboard = ({
         <StatCard
           title="Security Status"
           value={isBreached ? 'CRITICAL' : 'Secure'}
-          suffix={isBreached ? '⚡ ALERT' : 'SHA-256 OK'}
+          suffix={isBreached ? 'âš¡ ALERT' : 'SHA-256 OK'}
           icon={isBreached ? <ShieldAlert size={17} /> : <ShieldCheck size={17} />}
           color={isBreached ? 'danger' : 'theme'}
           pulse={isBreached}
           onClick={() => isBreached ? navigate('/security') : setActiveModal({ title: 'Security', val: 'Secure', desc: 'Real-time SHA-256 hash linkage monitoring.' })}
         />
-        <StatCard title="Active Nodes" value={liveNodes.length || '—'}
+        <StatCard title="Active Nodes" value={liveNodes.length || 'â€”'}
           suffix={liveNodes.length > 0 ? `${liveNodes.length} mining` : 'none paired'}
           icon={<Signal size={17} />} color="theme"
           onClick={() => setActiveModal({
@@ -295,7 +421,8 @@ const Dashboard = ({
           })} />
       </div>
 
-      {/* ── CONNECTED HARDWARE NODES PANEL ── */}
+
+      {/* â”€â”€ CONNECTED HARDWARE NODES PANEL â”€â”€ */}
       <motion.div className="glass-card rounded-[22px] p-6 md:p-8 relative overflow-hidden" whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
         <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-56 h-56 bg-emerald-500/4 dark:bg-emerald-500/6 rounded-full blur-3xl pointer-events-none" />
 
@@ -309,21 +436,21 @@ const Dashboard = ({
                 Connected Hardware Nodes
                 {liveNodes.length > 0 && (
                   <span className="ml-2 text-[9px] font-bold text-emerald-500 bg-emerald-500/12 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">
-                    ● LIVE · {simBlockCount} blocks mined
+                    â— LIVE Â· {simBlockCount} blocks mined
                   </span>
                 )}
               </h3>
               <p className="text-xs text-stone-500 dark:text-stone-400">
                 {pairedNodes.length === 0
-                  ? 'No nodes paired · Go to Uplink Terminal to pair hardware'
-                  : `${pairedNodes.length} node(s) · ${liveNodes.length} live · ${simBlockCount} virtual blocks generated`}
+                  ? 'No nodes paired Â· Go to Uplink Terminal to pair hardware'
+                  : `${pairedNodes.length} node(s) Â· ${liveNodes.length} live Â· ${simBlockCount} virtual blocks generated`}
               </p>
             </div>
           </div>
           {pairedNodes.length === 0 && (
             <button onClick={() => navigate('/provisioning')}
               className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-600/20 transition-all">
-              <Signal size={14} /> Pair Nodes →
+              <Signal size={14} /> Pair Nodes â†’
             </button>
           )}
         </div>
@@ -366,7 +493,7 @@ const Dashboard = ({
                         <Thermometer size={8} /> Temp
                       </p>
                       <p className={`text-sm font-bold font-mono ${isBreached ? 'text-red-500' : 'text-red-600 dark:text-red-400'}`}>
-                        {isBreached ? '99.9' : node.lastTemp?.toFixed(1)}°C
+                        {isBreached ? '99.9' : node.lastTemp?.toFixed(1)}Â°C
                       </p>
                     </div>
                     <div className="bg-white/40 dark:bg-white/4 rounded-xl p-2 text-center">
@@ -419,7 +546,7 @@ const Dashboard = ({
         )}
       </motion.div>
 
-      {/* ── CHART + AI PANEL ── */}
+      {/* â”€â”€ CHART + AI PANEL â”€â”€ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Telemetry Chart */}
@@ -439,22 +566,22 @@ const Dashboard = ({
                   {isBreached && (
                     <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 0.5 }}
                       className="text-[9px] font-black text-red-500 bg-red-500/10 border border-red-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest">
-                      ⚡ CORRUPTED
+                      âš¡ CORRUPTED
                     </motion.span>
                   )}
                 </h3>
                 <p className="text-[10px] text-stone-400">
                   {isBreached
-                    ? 'SHA-256 hash chain severed · Data integrity compromised'
+                    ? 'SHA-256 hash chain severed Â· Data integrity compromised'
                     : liveNodes.length > 0
-                    ? `${liveNodes.length} node${liveNodes.length !== 1 ? 's' : ''} broadcasting live · ${telemetryData.length} data points`
+                    ? `${liveNodes.length} node${liveNodes.length !== 1 ? 's' : ''} broadcasting live Â· ${telemetryData.length} data points`
                     : 'Awaiting paired node data'
                   }
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <LegendDot color="rose" label={isBreached ? 'CORRUPT' : 'Temp'} value={isBreached ? '99.9°C' : `${lastTemp}°C`} breach={isBreached} />
+              <LegendDot color="rose" label={isBreached ? 'CORRUPT' : 'Temp'} value={isBreached ? '99.9Â°C' : `${lastTemp}Â°C`} breach={isBreached} />
               <LegendDot color="sky"  label={isBreached ? 'SIGNAL' : 'Humidity'} value={isBreached ? '0.0%' : `${lastHum}%`} />
             </div>
           </div>
@@ -473,7 +600,7 @@ const Dashboard = ({
                   }`}>
                     <span className={`w-2 h-2 rounded-full shrink-0 ${isBreached ? 'animate-ping' : ''}`} style={{ backgroundColor: c }} />
                     <span className={isBreached ? 'text-red-400' : 'text-stone-300'}>{isBreached ? 'CORRUPTED' : node.id}</span>
-                    <span className="text-stone-500">· {isBreached ? '99.9' : node.lastTemp?.toFixed(1)}°C</span>
+                    <span className="text-stone-500">Â· {isBreached ? '99.9' : node.lastTemp?.toFixed(1)}Â°C</span>
                   </div>
                 );
               })}
@@ -489,7 +616,7 @@ const Dashboard = ({
             </div>
           ) : (
             <div className="h-64 sm:h-[260px] w-full relative">
-              {/* ── BREACH OVERLAY ── */}
+              {/* â”€â”€ BREACH OVERLAY â”€â”€ */}
               <AnimatePresence>
                 {isBreached && (
                   <motion.div
@@ -523,9 +650,9 @@ const Dashboard = ({
                         className="text-red-500 font-black text-base uppercase tracking-[0.3em] drop-shadow-lg"
                         style={{ fontFamily: 'JetBrains Mono, monospace', textShadow: '0 0 20px #ef4444' }}
                       >
-                        ⚡ SIGNAL CORRUPTED
+                        âš¡ SIGNAL CORRUPTED
                       </motion.p>
-                      <p className="text-red-400/70 text-[9px] font-mono uppercase tracking-widest">SHA-256 INTEGRITY BREACH · BLOCK HASH CHAIN SEVERED</p>
+                      <p className="text-red-400/70 text-[9px] font-mono uppercase tracking-widest">SHA-256 INTEGRITY BREACH Â· BLOCK HASH CHAIN SEVERED</p>
                     </div>
                   </motion.div>
                 )}
@@ -592,7 +719,7 @@ const Dashboard = ({
               )}
               <div className="flex justify-between items-center text-[9px] font-semibold text-stone-600 mb-3 uppercase tracking-wide">
                 <span className={isBreached ? 'text-red-400' : ''}>
-                  {isBreached ? '⚡ CORRUPTED HEATMAP' : 'Thermal Heatmap'}
+                  {isBreached ? 'âš¡ CORRUPTED HEATMAP' : 'Thermal Heatmap'}
                 </span>
                 <div className={`flex items-center gap-1.5 ${isBreached ? 'text-red-400' : 'text-red-400'}`}>
                   <Flame size={11} className={isBreached ? 'animate-bounce' : ''} />
@@ -607,7 +734,7 @@ const Dashboard = ({
                     ? `rgb(${200 + Math.round(Math.sin(i * 0.8) * 39)}, ${Math.round(20 + Math.random() * 30)}, ${Math.round(20 + Math.random() * 20)})`
                     : `rgb(${r},${g},80)`;
                   return (
-                    <div key={i} title={isBreached ? '99.9°C — CORRUPTED' : `${cell.temp?.toFixed(1)}°C`}
+                    <div key={i} title={isBreached ? '99.9Â°C â€” CORRUPTED' : `${cell.temp?.toFixed(1)}Â°C`}
                       className={`h-2 rounded-sm transition-all duration-500 ${isBreached ? 'animate-pulse' : ''}`}
                       style={{ backgroundColor: bg, opacity: isBreached ? 0.7 + Math.sin(i) * 0.3 : 0.6 + cell.norm * 0.4 }} />
                   );
@@ -615,8 +742,8 @@ const Dashboard = ({
               </div>
               <div className="flex justify-between mt-2 text-[8px] text-stone-600">
                 {isBreached
-                  ? <span className="text-red-400 font-bold w-full text-center">HASH INTEGRITY COMPROMISED — ALL READINGS FORGED</span>
-                  : <><span>18°C</span><span className="text-stone-500">Cool → Hot</span><span>42°C</span></>}
+                  ? <span className="text-red-400 font-bold w-full text-center">HASH INTEGRITY COMPROMISED â€” ALL READINGS FORGED</span>
+                  : <><span>18Â°C</span><span className="text-stone-500">Cool â†’ Hot</span><span>42Â°C</span></>}
               </div>
             </div>
 
@@ -644,7 +771,7 @@ const Dashboard = ({
         </div>
       </div>
 
-      {/* ── VERIFIED LEDGER ── */}
+      {/* â”€â”€ VERIFIED LEDGER â”€â”€ */}
       <div className="glass-card rounded-[22px] overflow-hidden">
         <div className="p-6 md:p-8 border-b border-stone-100 dark:border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -655,10 +782,10 @@ const Dashboard = ({
             <div>
               <h3 className="text-sm font-bold" style={{ fontFamily: 'Space Grotesk' }}>
                 Verified Ledger
-                {isBreached && <span className="ml-2 text-[9px] text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20 animate-pulse">⚡ COMPROMISED</span>}
+                {isBreached && <span className="ml-2 text-[9px] text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20 animate-pulse">âš¡ COMPROMISED</span>}
                 {isSimulating && !isBreached && <span className="ml-2 text-[9px] text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">+Virtual</span>}
               </h3>
-              <p className="text-[10px] text-stone-400">Forensic SHA-256 linkage stream · {filteredChain.length} blocks · <span className="font-mono">{LOCAL_TZ}</span></p>
+              <p className="text-[10px] text-stone-400">Forensic SHA-256 linkage stream Â· {filteredChain.length} blocks Â· <span className="font-mono">{LOCAL_TZ}</span></p>
             </div>
           </div>
           <div className="relative w-full md:w-64">
@@ -679,7 +806,7 @@ const Dashboard = ({
             </thead>
             <tbody className="divide-y divide-stone-50 dark:divide-white/3">
               {filteredChain.slice().reverse().map((block, rowIdx) => {
-                // When breached → EVERY block in the ledger is corrupted
+                // When breached â†’ EVERY block in the ledger is corrupted
                 const isCorrupted = isBreached;
                 return (
                   <motion.tr layout key={block.hash || `r-${block.index}-${rowIdx}`}
@@ -704,7 +831,7 @@ const Dashboard = ({
                           ? 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-700/30'
                           : 'bg-stone-100 dark:bg-white/6 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-white/10'
                       }`}>
-                        {isCorrupted ? '⚠ FORGED' : (block.nonce ?? '0')}
+                        {isCorrupted ? 'âš  FORGED' : (block.nonce ?? '0')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -732,8 +859,8 @@ const Dashboard = ({
                         isCorrupted ? 'text-red-500' : 'text-emerald-500'
                       }`}>
                         {isCorrupted
-                          ? '✗ Corrupted'
-                          : `✓ Verified · ${block._nodeId?.split('-')[0] ?? 'Node'}`
+                          ? 'âœ— Corrupted'
+                          : `âœ“ Verified Â· ${block._nodeId?.split('-')[0] ?? 'Node'}`
                         }
                       </p>
                     </td>
@@ -746,14 +873,14 @@ const Dashboard = ({
             <div className="py-16 text-center text-stone-400">
               <Database size={30} className="mx-auto mb-3 opacity-25" />
               <p className="text-sm font-medium">
-                {searchTerm ? `No blocks for "${searchTerm}"` : 'No blocks yet · Pair nodes in Uplink Terminal'}
+                {searchTerm ? `No blocks for "${searchTerm}"` : 'No blocks yet Â· Pair nodes in Uplink Terminal'}
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── MODAL ── */}
+      {/* â”€â”€ MODAL â”€â”€ */}
       <AnimatePresence>
         {activeModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -779,13 +906,13 @@ const Dashboard = ({
       </AnimatePresence>
 
       <p className="text-center text-[10px] text-stone-400 dark:text-stone-700 pb-4 uppercase tracking-widest font-medium">
-        SenseChain Neural Infrastructure · SHA-256 Layer-1 Blockchain
+        SenseChain Neural Infrastructure Â· SHA-256 Layer-1 Blockchain
       </p>
     </div>
   );
 };
 
-// ── SUB COMPONENTS ──
+// â”€â”€ SUB COMPONENTS â”€â”€
 
 // StatCard uses CSS variables for all brand colors so it automatically
 // adopts whatever theme is currently active system-wide.
@@ -801,14 +928,14 @@ const StatCard = ({ title, value, suffix, icon, color, pulse, onClick }) => {
     <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }} onClick={onClick}
       className={`stat-card border cursor-pointer ${pulse ? 'breach-glow' : ''}`}>
       <div className="flex items-start justify-between mb-4">
-        {/* Icon badge — uses theme primary color */}
+        {/* Icon badge â€” uses theme primary color */}
         <div className="p-2.5 rounded-xl transition-colors duration-500"
           style={{ backgroundColor: iconBg, color: iconColor }}>
           {icon}
         </div>
         <ChevronRight size={14} className="text-stone-300 dark:text-stone-700 mt-0.5" />
       </div>
-      {/* Value — uses theme primary color */}
+      {/* Value â€” uses theme primary color */}
       <motion.p key={String(value)} initial={{ scale: 1.08, opacity: 0.6 }} animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         className="text-2xl md:text-3xl font-bold tabular-nums transition-colors duration-500"
@@ -837,7 +964,7 @@ const ChartTooltip = ({ active, payload, label, liveNodes = [] }) => {
   const nodeColor = nodeIdx >= 0 ? nodeColors[nodeIdx % nodeColors.length] : '#ef4444';
   return (
     <div className="glass-card rounded-xl p-4 shadow-xl border border-stone-100 dark:border-white/8 min-w-[170px]">
-      <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-1">{label} · Sensor Data</p>
+      <p className="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-1">{label} Â· Sensor Data</p>
       {nodeId && (
         <p className="text-[8px] font-mono mb-2 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: nodeColor }} />
@@ -847,7 +974,7 @@ const ChartTooltip = ({ active, payload, label, liveNodes = [] }) => {
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-1.5"><Thermometer size={12} className="text-red-500" /><span className="text-xs text-stone-500">Thermal</span></div>
-          <span className="text-sm font-bold text-red-500 font-mono">{payload[0]?.value}°C</span>
+          <span className="text-sm font-bold text-red-500 font-mono">{payload[0]?.value}Â°C</span>
         </div>
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-1.5"><Droplets size={12} className="text-sky-500" /><span className="text-xs text-stone-500">Humidity</span></div>

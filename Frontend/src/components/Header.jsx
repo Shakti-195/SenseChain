@@ -96,12 +96,12 @@ const Header = ({ integrity, connError, lastUpdated, chainHeight }) => {
   }, []);
 
   const navItems = [
-    { to: '/', label: 'Dashboard', icon: <LayoutDashboard size={15} /> },
-    { to: '/provisioning', label: 'Uplink Terminal', icon: <PlugZap size={15} /> },
-    { to: '/security', label: 'Security', icon: <Shield size={15} /> },
-    { to: '/analytics', label: 'Analytics', icon: <BarChart3 size={15} /> },
-    { to: '/node-settings', label: 'Node Settings', icon: <Settings size={15} /> },
-    { to: '/about', label: 'News & Updates', icon: <Newspaper size={15} /> },
+    { to: '/',              label: 'Dashboard',       icon: <LayoutDashboard size={15} /> },
+    { to: '/provisioning',  label: 'Uplink Terminal',  icon: <PlugZap size={15} /> },
+    { to: '/security',      label: 'Security',         icon: <Shield size={15} /> },
+    { to: '/analytics',     label: 'Analytics',        icon: <BarChart3 size={15} /> },
+    { to: '/node-settings', label: 'Node Settings',    icon: <Settings size={15} /> },
+    { to: '/about',         label: 'News & Updates',   icon: <Newspaper size={15} /> },
   ];
 
   const isActive = (path) => location.pathname === path;
